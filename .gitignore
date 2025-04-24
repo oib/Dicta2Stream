@@ -20,4 +20,11 @@ Thumbs.db
 .vscode/
 .idea/
 
-data/
+data/*
+!data/.gitignore
+
+log/*
+!log/.gitignore
+
+streams/*
+!streams/.gitignore
