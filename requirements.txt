@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlmodel
+python-dotenv
+slowapi
+requests
+smtplib
+email
+psycopg2-binary
