@@ -19,3 +19,5 @@ Thumbs.db
 # IDEs und Editoren
 .vscode/
 .idea/
+
+data/
