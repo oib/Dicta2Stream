@@ -42,9 +42,9 @@ uvicorn main:app --reload
 - `static/` — static HTML/JS/CSS assets
 
 ### Notes
-- By default, audio uploads are stored in `/data` and streams in `/srv/streams` (change in code as needed).
+- By default, audio uploads are stored in `/data`.
 - Ollama music/singing detection requires a local Whisper API at `localhost:11434`.
-- Abuse logs are written to `log.txt`.
+- Abuse logs are written to `abuse.log`.
 
 ## License
 MIT

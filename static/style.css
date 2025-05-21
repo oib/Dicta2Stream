@@ -1,4 +1,48 @@
-/* style.css — minimal UI styling for dicta2stream */
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* centers children horizontally */
+}
+
+nav#guest-dashboard.dashboard-nav {
+  width: fit-content; /* optional: shrink to fit content */
+  margin: 0 auto;     /* fallback for block centering */
+}
+
+/* Toast notification styles */
+.toast-container {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--crt-screen);
+  color: var(--crt-text);
+  padding: 1em 2em;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px var(--crt-shadow);
+  margin-top: 0.5em;
+  opacity: 0;
+  animation: fadeInOut 3.5s both;
+  font-size: 1.1em;
+  pointer-events: auto;
+  border: 1px solid var(--crt-border);
+  text-shadow: 0 0 2px rgba(0, 255, 0, 0.1);
+}
+
+@keyframes fadeInOut {
+  0%   { opacity: 0; transform: translateY(40px) scale(0.96); }
+  10%  { opacity: 1; transform: translateY(0) scale(1); }
+  90%  { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(40px) scale(0.96); }
+}
 
 .spinner {
   position: absolute;
@@ -26,6 +70,8 @@
   font-size: 0.9em;
   opacity: 0.7;
 }
+
+
 
 .cancel-upload {
   display: none;
@@ -83,12 +129,372 @@ button.logout:hover {
 
 audio {
   display: block;
-  margin: 1em auto;
+  margin: 0;
   max-width: 100%;
   outline: none;
   border-radius: 6px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   background: #fff;
+}
+
+.audio-controls {
+  display: flex;
+  justify-content: center;
+  margin: 1.5em 0;
+  padding: 1em;
+}
+
+.audio-controls button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 1.2em;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 96px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  font-size: 48px;
+  font-weight: bold;
+  line-height: 1;
+  color: #333;
+}
+
+.audio-controls button:hover {
+  background-color: #f0f0f0;
+  transform: scale(1.1);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
+
+.audio-controls button:active {
+  color: #000;
+  transform: scale(0.9);
+}
+
+.audio-controls svg {
+  fill: #333;
+  transition: all 0.2s ease;
+  width: 56px;
+  height: 56px;
+}
+
+.audio-controls button:hover svg {
+  fill: #000;
+  transform: scale(1.1);
+}
+
+/* Hide the native controls */
+audio::-webkit-media-controls-panel {
+  display: none !important;
+}
+
+audio::-webkit-media-controls-play-button {
+  display: none !important;
+}
+
+audio::-webkit-media-controls-volume-slider {
+  display: none !important;
+}
+
+main > section {
+  width: 100%;
+  max-width: 900px;
+  padding: 2em;
+  background: #1a1a1a;
+  border: 1px solid var(--audio-metal);
+  border-radius: 8px;
+  margin-bottom: 1.5em;
+  color: var(--audio-text);
+  text-shadow: 0 0 2px rgba(255, 102, 0, 0.2);
+  position: relative;
+}
+
+main > section article {
+  background: #222;
+  border: 1px solid #444;
+  padding: 1.5em;
+  border-radius: 6px;
+  margin-bottom: 1em;
+  position: relative;
+  color: #d3d3d3; /* Light gray for better contrast */
+}
+
+main > section article::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, rgba(255, 102, 0, 0.03), rgba(255, 102, 0, 0.01));
+  pointer-events: none;
+  z-index: -1;
+}
+
+main > section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, rgba(255, 102, 0, 0.05), rgba(255, 102, 0, 0.02));
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Audio controls styling */
+button.audio-control {
+  background: #333;
+  border: 2px solid #555;
+  color: #fff;
+  padding: 0.5em 1em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+}
+
+#register-form {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 20px;
+  text-align: center;
+}
+
+#register-form p {
+  margin-bottom: 1em;
+  text-align: left;
+}
+
+#register-form label {
+  display: inline;
+  margin-right: 10px;
+  color: #d3d3d3;
+  font-family: 'Courier New', monospace;
+}
+
+#register-form input[type="text"],
+#register-form input[type="email"],
+#register-form input[type="password"] {
+  display: inline;
+  background-color: rgb(26, 26, 26);
+  border: 1px solid #444;
+  color: #d3d3d3;
+  padding: 0.8em;
+  border-radius: 4px;
+  width: 250px;
+  transition: all 0.2s ease;
+}
+
+#register-form input[type="text"]:focus,
+#register-form input[type="email"]:focus,
+#register-form input[type="password"]:focus {
+  outline: none;
+  border-color: #ff6600;
+  box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.1);
+}
+
+/* Submit button styling */
+#register-form button[type="submit"] {
+  display: inline;
+  width: calc(250px + 1.6em);
+  padding: 0.8em;
+  background: transparent;
+  color: #d3d3d3;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 1.25em;
+  transition: color 0.3s;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  border: 1px solid #444;
+  background: #1a1a1a;
+}
+
+#register-form button[type="submit"]:hover {
+  color: #ff6600;
+}
+
+#register-form button[type="submit"]:active {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+button.audio-control:hover {
+  background: #444;
+  border-color: #666;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* Audio meter styling */
+.audio-meter {
+  background: #333;
+  border: 1px solid #555;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.audio-meter-fill {
+  background: linear-gradient(90deg, #ff6600, #ff8800);
+  height: 100%;
+  transition: width 0.3s ease-in-out;
+}
+
+/* Audio list styling */
+.audio-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: #1a1a1a;
+  border: 1px solid var(--audio-metal);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#stream-list > li {
+  background: #1a1a1a;
+}
+
+/* Stream player styling */
+.stream-player {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  padding: 1.5em;
+  border-radius: 8px;
+  margin-bottom: 1em;
+  position: relative;
+  color: #d3d3d3;
+}
+
+.stream-player::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, rgba(255, 102, 0, 0.03), rgba(255, 102, 0, 0.01));
+  pointer-events: none;
+  z-index: -1;
+}
+
+.stream-player h3 {
+  color: var(--audio-accent);
+  margin: 0 0 1em 0;
+  font-size: 1.1em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.stream-player audio {
+  width: 100%;
+  max-width: 500px;
+  margin: 1em 0;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 6px;
+}
+
+.stream-player audio {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background: #1a1a1a;
+  border: none;
+  border-radius: 6px;
+  width: 100%;
+  max-width: 500px;
+  margin: 1em 0;
+  padding: 0.5em;
+}
+
+/* Custom play button */
+.stream-player audio::before {
+  content: '▶️';
+  position: absolute;
+  left: 0.5em;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #2e8b57;
+  font-size: 1.5em;
+  cursor: pointer;
+  z-index: 1;
+}
+
+/* Custom progress bar */
+.stream-player audio::-webkit-progress-bar {
+  background: #444;
+  border-radius: 3px;
+}
+
+.stream-player audio::-webkit-progress-value {
+  background: linear-gradient(90deg, #ff6600, #ff8800);
+  border-radius: 3px;
+}
+
+/* Custom volume slider */
+.stream-player audio::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #ff6600;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.stream-player audio::-webkit-slider-runnable-track {
+  height: 4px;
+  background: #444;
+  border-radius: 2px;
+}
+
+/* Guest login heading styling */
+#guest-login h2 {
+  color: var(--audio-accent);
+  font-size: 1.1em;
+  margin: 0.5em 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+  text-align: center;
+  display: inline-block;
+  background: #2e8b57;
+  color: white;
+  padding: 0.4em 1em;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+#guest-login h2:hover {
+  background: #256b45;
+}
+
+.audio-list li {
+  background: #333;
+  border: 1px solid #555;
+  padding: 1em;
+  margin-bottom: 0.5em;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.audio-list li:hover {
+  background: #444;
+  border-color: #666;
+  transform: translateY(-1px);
 }
 
 #me-wrap {
@@ -147,6 +553,13 @@ input[disabled], button[disabled] {
   font-size: 0.95em;
   animation: fadeIn 0.3s ease;
   display: inline-block;
+}
+
+#stream-info, #stream-info * {
+  display: initial !important;
+  visibility: visible !important;
+  color: #222 !important;
+  background: #fff !important;
 }
 
 body {
@@ -357,6 +770,68 @@ section article {
   box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
+section article.stream-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.stream-player {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  padding: 1.5em;
+  border-radius: 8px;
+  margin-bottom: 1em;
+  position: relative;
+  color: #d3d3d3;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.stream-player h3 {
+  margin: 0 0 15px 0;
+  color: #d3d3d3;
+}
+
+.stream-audio {
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.audio-controls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.audio-controls button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  font-size: 24px;
+  font-weight: bold;
+  color: #666;
+}
+
+.audio-controls button:hover {
+  background-color: #f0f0f0;
+  color: #333;
+  transform: scale(1.05);
+}
+
+.audio-controls button:active {
+  color: #000;
+  transform: scale(0.95);
+}
+
+.stream-info {
+  margin: 0;
+  color: #666;
+  font-size: 0.9em;
+}
+
 ul#stream-list,
 ul#me-files {
   padding-left: 0;
@@ -413,10 +888,130 @@ section article a[href^="mailto"]:hover {
 }
 
 code {
-  background: #eee;
+  background: #1a1a1a;
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: 'Courier New', monospace;
+  color: #fff;
+  text-shadow: 0 0 4px rgba(0, 255, 0, 0.1);
+}
+
+:root {
+  --audio-bg: #222;
+  --audio-metal: #333;
+  --audio-text: #fff;
+  --audio-accent: #ff6600;
+  --audio-shadow: rgba(0, 0, 0, 0.5);
+}
+
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--audio-bg);
+  color: var(--audio-text);
+  line-height: 1.6;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, rgba(255, 102, 0, 0.05) 0%, rgba(255, 102, 0, 0) 20%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 960px;
+  width: 95%;
+  margin: 0 auto;
+  padding: 20px;
+  background: var(--audio-bg);
+  border: 2px solid var(--audio-metal);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px var(--audio-shadow);
+}
+
+main::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(0, 255, 0, 0.05),
+    rgba(0, 255, 0, 0.05) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+nav#guest-dashboard.dashboard-nav,
+nav#user-dashboard.dashboard-nav {
+  width: fit-content;
+  margin: 20px auto;
+  padding: 10px;
+  background: var(--crt-screen);
+  border: 1px solid var(--crt-border);
+  border-radius: 5px;
+  font-family: 'Courier New', monospace;
+}
+
+nav.dashboard-nav a {
+  color: #d3d3d3;
+  text-decoration: none;
+  font-family: 'Courier New', monospace;
+  margin: 0 0.5em;
+  padding: 5px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+
+nav.dashboard-nav a:hover {
+  color: #ff6600;
+}
+
+/* Toast notification styles */
+
+/* Footer links styling */
+.footer-links {
+  margin-top: 1em;
+  font-size: 0.85em;
+}
+
+.footer-links a {
+  color: #d3d3d3;
+  text-decoration: none;
+  font-family: 'Courier New', monospace;
+  margin: 0 0.5em;
+}
+
+.footer-links a:hover {
+  color: #ff6600;
+}
+
+
+
+footer p.footer-hint a {
+  color: #d3d3d3;
+  text-decoration: none;
+  font-family: 'Courier New', monospace;
+  margin: 0 0.5em;
+  transition: color 0.3s;
+}
+
+footer p.footer-hint a:hover {
+  color: #ff6600;
 }
 
 @media (min-width: 960px) {
@@ -424,7 +1019,7 @@ code {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: #e0f7ff;
+    background: var(--crt-screen);
     padding: 1em;
     margin: 2em auto;
     border-radius: 6px;

@@ -2,12 +2,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="stylesheet" href="/static/style.css" media="all" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="dicta2stream is a minimalist voice streaming platform for looping your spoken audio anonymously." />
   <title>dicta2stream</title>
-  <link rel="stylesheet" href="/static/style.css" />
   <!-- Responsive burger menu display -->
   <style>
     #burger-label, #burger-toggle { display: none; }
@@ -30,67 +30,68 @@
 
   <main>
   
-    <section id="upload-area" class="dropzone">
-      <p>🎙 Drag & drop your audio file here<br>or click to browse</p>
-      <input type="file" id="fileInput" accept="audio/*" hidden />
+    <!-- Guest Dashboard -->
+    <nav id="guest-dashboard" class="dashboard-nav">
+      <a href="#" id="guest-welcome" data-target="welcome-page">Welcome</a> |
+      <a href="#" id="guest-streams" data-target="stream-page">Streams</a> |
+      <a href="#" id="guest-login" data-target="register-page">Login or Register</a>
+    </nav>
+
+    <!-- User Dashboard -->
+    <nav id="user-dashboard" class="dashboard-nav" style="display:none;">
+      <a href="#" id="user-welcome" data-target="welcome-page">Welcome</a> |
+      <a href="#" id="user-streams" data-target="stream-page">Streams</a> |
+      <a href="#" id="show-me" data-target="me-page">Your Stream</a>
+    </nav>
+    <section id="me-page">
+      <article>
+        <h2>Your Stream 🎙️</h2>
+        <p>This is your personal stream. Only you can upload to it.</p>
+        <audio id="me-audio"></audio>
+        <div class="audio-controls">
+          <button id="play-pause" type="button">▶️</button>
+        </div>
+      </article>
+      <section id="user-upload-area" class="dropzone">
+        <p>🎙 Drag & drop your audio file here<br>or click to browse</p>
+        <input type="file" id="fileInputUser" accept="audio/*" hidden />
+      </section>
     </section>
 
-    <div id="spinner" class="spinner">
+    <div id="spinner" class="spinner"></div>
 
-    </div>
-    <div id="status"></div>
 
-    <section id="stream-info" hidden>
-      <p>Your loop stream:</p>
-      <code id="streamUrl">...</code>
-      <audio controls id="player" loop></audio>
-      <p><button id="delete-account" class="delete-account">🗑️ Delete My Account</button></p>
-    </section>
 
-    <input type="checkbox" id="burger-toggle" hidden>
-<label for="burger-toggle" id="burger-label" aria-label="Menu">
-  <span></span>
-  <span></span>
-  <span></span>
-</label>
-<section id="links">
-      <p><a href="#" id="show-me" data-target="me-page">Your Stream</a></p>
-      <p><a href="#" id="show-register" data-target="register-page">Login or Register</a></p>
-      <p>
-        <a href="#" id="show-terms" data-target="terms-page">Terms of Service</a> |
-        <a href="#" id="show-imprint" data-target="imprint-page">Imprint</a> |
-        <a href="#" id="show-privacy" data-target="privacy-page">Privacy Policy</a> |
-        <a href="#" id="show-streams" data-target="stream-page">Streams</a>
-      </p>
-    </section>
+    <!-- Burger menu and legacy links section removed for clarity -->
 
     <section id="terms-page" hidden>
       <article>
         <h2>Terms of Service</h2>
-        <p><em>Last updated: April 18, 2025</em></p>
         <p>By accessing or using dicta2stream.net (the “Service”), you agree to be bound by these Terms of Service (“Terms”). If you do not agree, do not use the Service.</p>
         <ul>
           <li>You must be at least 18 years old to register.</li>
-          <li>UID in localStorage must be uniquely yours.</li>
+          <li>Each account must be unique and used by only one person.</li>
           <li>One account per device/IP per 24 hours.</li>
+          <li>If hate speech, illegal, or harmful content is detected, the account and all associated data will be deleted.</li>
+          <li>The associated email address will be banned from recreating an account.</li>
+          <li>Uploads are limited to 100 MB and must be voice only.</li>
+          <li>Music/singing will be rejected.</li>
         </ul>
-        <p>Uploads are limited to <strong>100 MB</strong> and must be <strong>voice only</strong>. Music/singing will be rejected. Your stream will loop publicly and anonymously via Icecast.</p>
-        <p>See full legal terms in the Git repository or request via support@dicta2stream.net.</p>
-        <p><a href="#" data-back="upload-area">← Back</a></p>
+        
       </article>
     </section>
 
     <section id="privacy-page" hidden>
       <article>
         <h2>Privacy Policy</h2>
-        <p><em>Last updated: April 18, 2025</em></p>
         <ul>
-          <li>No cookies. UID is stored locally only.</li>
+          <li><strong>Users</strong>: Session uses both cookies and localStorage to store UID and authentication state.</li>
+          <li><strong>Guests</strong>: No cookies are set. No persistent identifiers are stored.</li>
           <li>We log IP + UID only for abuse protection and quota enforcement.</li>
           <li>Uploads are scanned via Whisper+Ollama but not stored as transcripts.</li>
           <li>Data is never sold. Contact us for account deletion.</li>
         </ul>
-        <p><a href="#" data-back="upload-area">← Back</a></p>
+        
       </article>
     </section>
 
@@ -99,90 +100,94 @@
         <h2>Imprint</h2>
         <p><strong>Andreas Michael Fleckl</strong></p>
         <p>Johnstrassse 7/6<br>1140 Vienna<br>Austria / Europe</p>
-        <p><strong>Contact:</strong><br>
-        <a href="mailto:Andreas.Fleckl@dicta2stream.net">Andreas.Fleckl@dicta2stream.net</a></p>
-        <p><a href="#" data-back="upload-area">← Back</a></p>
+        
       </article>
     </section>
 
+    <section id="welcome-page">
+      <article>
+        <h2>Welcome</h2>
+        <p>dicta2stream is a minimalist voice streaming platform for your spoken audio anonymously under a nickname in a loop. <br><br>
+        <strong>What you can do here:</strong></p>
+        <ul>
+          <li>🎧 Listen to public voice streams from others, instantly</li>
+          <li>🎙️ Upload your own audio and share your voice with the world</li>
+          <li>🕵️ No sign-up required for listening</li>
+          <li>🔒 Optional registration for uploading and managing your own stream</li>
+        </ul>
+
+      </article>
+    </section>
     <section id="stream-page" hidden>
       <article>
         <h2>🎧 Public Streams</h2>
+        <!-- The list below is dynamically populated by streams-ui.js; shows 'Loading...' while fetching -->
         <ul id="stream-list"><li>Loading...</li></ul>
-        <p><a href="#" data-back="upload-area">← Back</a></p>
-        <p style="margin-top:1.5em;font-size:0.98em;">
-          <a href="#" id="show-terms" data-target="terms-page">Terms of Service</a> |
-          <a href="#" id="show-imprint" data-target="imprint-page">Imprint</a> |
-          <a href="#" id="show-privacy" data-target="privacy-page">Privacy Policy</a>
-        </p>
       </article>
     </section>
 
     <section id="register-page" hidden>
       <article>
-        <h2>Register</h2>
+        <h2>Login or Register</h2>
         <form id="register-form">
           <p><label>Email<br><input type="email" name="email" required /></label></p>
           <p><label>Username<br><input type="text" name="user" required /></label></p>
+          <p style="display: none;">
+            <label>Leave this empty:<br>
+              <input type="text" name="bot_trap" autocomplete="off" />
+            </label>
+          </p>
           <p><button type="submit">Create Account</button></p>
         </form>
         <p><small>You’ll receive a magic login link via email. No password required.</small></p>
-        <p><a href="#" data-back="upload-area">← Back</a></p>
+        <p style="font-size: 0.85em; opacity: 0.65; margin-top: 1em;">Your session expires after 1 hour. Shareable links redirect to homepage.</p>
       </article>
     </section>
 
-    <section id="magic-login-page" hidden>
-      <article>
-        <h2>Magic Login</h2>
-        <p>If you received a magic login link, you're almost in. Click below to confirm your account and activate streaming.</p>
-        <form id="magic-login-form">
-          <div id="magic-error" style="color: #b22222; font-size: 0.9em; display: none; margin-bottom: 1em;"></div>
-          <input type="hidden" name="token" id="magic-token" />
-          <button type="submit">Confirm &amp; Activate</button>
-        </form>
-        <p><a href="#" data-back="upload-area">← Back</a></p>
-      </article>
-    </section>
 
     <section id="quota-meter" hidden>
       <p class="quota-meter">Quota: <progress id="quota-bar" value="0" max="100"></progress> <span id="quota-text">0 MB used</span></p>
     </section>
 
-    <section id="me-page" hidden>
-      <article>
-        <h2>Your Stream 🎙️</h2>
-        <p>This is your personal stream. Only you can upload to it.</p>
-        <audio controls id="me-audio"></audio>
-        <!-- Playlist and URL input hidden as per user request -->
-        <div class="playlist-controls">
-          <button id="me-prev" aria-label="Previous track">⏮️</button>
-          <button id="me-next" aria-label="Next track">⏭️</button>
-        </div>
-        <!-- <ul id="me-playlist" class="playlist"></ul> -->
-        <!-- <p><input id="me-url" readonly class="me-url" /></p> -->
-        <p><button id="copy-url">📋 Copy URL to clipboard</button></p>
-        <p><a href="#" data-back="upload-area">← Back</a></p>
-      </article>
-    </section>
 
   </main>
 
   <footer>
     <p>Built for public voice streaming • Opus | Mono | 48 kHz | 60 kbps</p>
-    <p class="footer-hint">Need more space? Contact <a href="mailto:Andreas.Fleckl@dicta2stream.net">Andreas.Fleckl@dicta2stream.net</a></p>
-    <p style="font-size: 0.85em; opacity: 0.65;">Your session expires after 1 hour. Shareable links redirect to homepage.</p>
+    <p class="footer-hint">Need more space? Contact<a href="mailto:Andreas.Fleckl@dicta2stream.net">Andreas.Fleckl@dicta2stream.net</a></p>
+
+    <p class="footer-links">
+      <a href="#" id="footer-terms" data-target="terms-page">Terms of Service</a> |
+      <a href="#" id="footer-privacy" data-target="privacy-page">Privacy Policy</a> |
+      <a href="#" id="footer-imprint" data-target="imprint-page">Imprint</a>
+    </p>
   </footer>
 
   <script type="module" src="/static/dashboard.js"></script>
   <script type="module" src="/static/app.js"></script>
+  <!-- Load public streams UI logic -->
+  <script type="module" src="/static/streams-ui.js"></script>
+  <!-- Load upload functionality -->
+  <script type="module" src="/static/upload.js"></script>
   <script type="module">
     import "/static/nav.js";
     window.addEventListener("pageshow", () => {
-      const dz = document.querySelector("#upload-area");
-      dz.classList.remove("uploading");
+      const dz = document.querySelector("#user-upload-area");
+      if (dz) dz.classList.remove("uploading");
       const spinner = document.querySelector("#spinner");
       if (spinner) spinner.style.display = "none";
     });
+  </script>
+  <script type="module">
+    import { initMagicLogin } from '/static/magic-login.js';
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('token')) {
+      if (document.readyState === "loading") {
+        document.addEventListener('DOMContentLoaded', initMagicLogin);
+      } else {
+        initMagicLogin();
+      }
+    }
   </script>
 </body>
 </html>

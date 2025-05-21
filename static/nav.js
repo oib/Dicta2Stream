@@ -1,8 +1,10 @@
-// nav.js — lightweight navigation & magic‑link handling
+import { showToast } from "./toast.js";
 
-// fallback toast if app.js not yet loaded
-if (typeof window.showToast !== "function") {
-  window.showToast = (msg) => alert(msg);
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -13,6 +15,12 @@ document.addEventListener("DOMContentLoaded", () => {
         sec.hidden = sec.id !== id;
         sec.tabIndex = -1;
       });
+      // Show user-upload-area only when me-page is shown and user is logged in
+      const userUpload = document.getElementById("user-upload-area");
+      if (userUpload) {
+        const uid = getCookie("uid");
+        userUpload.style.display = (id === "me-page" && uid) ? '' : 'none';
+      }
       localStorage.setItem("last_page", id);
       const target = document.getElementById(id);
       if (target) target.focus();
@@ -20,7 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
     init() {
       initNavLinks();
       initBackButtons();
-      initStreamsLoader();
+  
       initStreamLinks();
     }
   };
@@ -38,14 +46,30 @@ document.addEventListener("DOMContentLoaded", () => {
       link.classList.toggle('active', uidParam === profileUid);
     });
   }
-  window.addEventListener('popstate', highlightActiveProfileLink);
+  window.addEventListener('popstate', () => {
+    const params = new URLSearchParams(window.location.search);
+    const profileUid = params.get('profile');
+    if (profileUid) {
+      showOnly('me-page');
+      if (typeof window.showProfilePlayerFromUrl === 'function') {
+        window.showProfilePlayerFromUrl();
+      }
+    } else {
+      highlightActiveProfileLink();
+    }
+  });
 
   /* restore last page (unless magic‑link token present) */
   const params = new URLSearchParams(location.search);
   const token = params.get("token");
   if (!token) {
     const last = localStorage.getItem("last_page");
-    if (last && document.getElementById(last)) showOnly(last);
+    if (last && document.getElementById(last)) {
+      showOnly(last);
+    } else if (document.getElementById("welcome-page")) {
+      // Show Welcome page by default for all new/guest users
+      showOnly("welcome-page");
+    }
     // Highlight active link on initial load
     highlightActiveProfileLink();
   }
@@ -62,8 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Debounce loading and helper for streams list
-  let loadingStreams = false;
+
   function renderStreamList(streams) {
     const ul = document.getElementById("stream-list");
     if (!ul) return;
@@ -81,49 +104,79 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize navigation listeners
   function initNavLinks() {
-    const linksContainer = document.getElementById("links");
-    if (!linksContainer) return;
-    linksContainer.addEventListener("click", e => {
-      const a = e.target.closest("a[data-target]");
-      if (!a || !linksContainer.contains(a)) return;
-      e.preventDefault();
-      const target = a.dataset.target;
-      if (target) showOnly(target);
-      const burger = document.getElementById("burger-toggle");
-      if (burger && burger.checked) burger.checked = false;
+    const navIds = ["links", "user-dashboard", "guest-dashboard"];
+    navIds.forEach(id => {
+      const nav = document.getElementById(id);
+      if (!nav) return;
+      nav.addEventListener("click", e => {
+        const a = e.target.closest("a[data-target]");
+        if (!a || !nav.contains(a)) return;
+        e.preventDefault();
+
+        // Save audio state before navigation
+        const audio = document.getElementById('me-audio');
+        const wasPlaying = audio && !audio.paused;
+        const currentTime = audio ? audio.currentTime : 0;
+        
+        const target = a.dataset.target;
+        if (target) showOnly(target);
+        
+        // Handle stream page specifically
+        if (target === "stream-page" && typeof window.maybeLoadStreamsOnShow === "function") {
+          window.maybeLoadStreamsOnShow();
+        }
+        // Handle me-page specifically
+        else if (target === "me-page" && audio) {
+          // Restore audio state if it was playing
+          if (wasPlaying) {
+            audio.currentTime = currentTime;
+            audio.play().catch(e => console.error('Play failed:', e));
+          }
+        }
+      });
+    });
+
+    // Add click handlers for footer links with audio state saving
+    document.querySelectorAll(".footer-links a").forEach(link => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        const target = link.dataset.target;
+        if (!target) return;
+
+        // Save audio state before navigation
+        const audio = document.getElementById('me-audio');
+        const wasPlaying = audio && !audio.paused;
+        const currentTime = audio ? audio.currentTime : 0;
+
+        showOnly(target);
+
+        // Handle me-page specifically
+        if (target === "me-page" && audio) {
+          // Restore audio state if it was playing
+          if (wasPlaying) {
+            audio.currentTime = currentTime;
+            audio.play().catch(e => console.error('Play failed:', e));
+          }
+        }
+      });
     });
   }
-
+        
   function initBackButtons() {
     document.querySelectorAll('a[data-back]').forEach(btn => {
       btn.addEventListener("click", e => {
         e.preventDefault();
         const target = btn.dataset.back;
         if (target) showOnly(target);
+        // Ensure streams load instantly when stream-page is shown
+        if (target === "stream-page" && typeof window.maybeLoadStreamsOnShow === "function") {
+          window.maybeLoadStreamsOnShow();
+        }
       });
     });
   }
 
-  function initStreamsLoader() {
-    const streamsLink = document.getElementById("show-streams");
-    streamsLink?.addEventListener("click", async e => {
-      e.preventDefault();
-      if (loadingStreams) return;
-      loadingStreams = true;
-      showOnly("stream-page");
-      try {
-        const res = await fetch("/streams");
-        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-        const data = await res.json();
-        renderStreamList(data.streams || []);
-      } catch {
-        const ul = document.getElementById("stream-list");
-        if (ul) ul.innerHTML = "<li>Error loading stream list</li>";
-      } finally {
-        loadingStreams = false;
-      }
-    });
-  }
+
 
   function initStreamLinks() {
     const ul = document.getElementById("stream-list");

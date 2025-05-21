@@ -1,27 +1,52 @@
 // app.js — Frontend upload + minimal native player logic with slide-in and pulse effect
 
-import { playBeep } from "./sound.js";
-
-// 🔔 Minimal toast helper so calls to showToast() don’t fail
-function showToast(msg) {
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.textContent = msg;
-  toast.style.position = "fixed";
-  toast.style.bottom = "1.5rem";
-  toast.style.left = "50%";
-  toast.style.transform = "translateX(-50%)";
-  toast.style.background = "#333";
-  toast.style.color = "#fff";
-  toast.style.padding = "0.6em 1.2em";
-  toast.style.borderRadius = "6px";
-  toast.style.boxShadow = "0 2px 6px rgba(0,0,0,.2)";
-  toast.style.zIndex = 9999;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
 }
 
+import { playBeep } from "./sound.js";
+import { showToast } from "./toast.js";
+
+
+// Log debug messages to server
+export function logToServer(msg) {
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/log", true);
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.send(JSON.stringify({ msg }));
+}
+
+// Expose for debugging
+window.logToServer = logToServer;
+
+// Handle magic link login redirect
+(function handleMagicLoginRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('login') === 'success' && params.get('confirmed_uid')) {
+    const username = params.get('confirmed_uid');
+    localStorage.setItem('uid', username);
+    logToServer(`[DEBUG] localStorage.setItem('uid', '${username}')`);
+    localStorage.setItem('confirmed_uid', username);
+    logToServer(`[DEBUG] localStorage.setItem('confirmed_uid', '${username}')`);
+    const uidTime = Date.now().toString();
+    localStorage.setItem('uid_time', uidTime);
+    logToServer(`[DEBUG] localStorage.setItem('uid_time', '${uidTime}')`);
+    // Set uid as cookie for backend authentication
+    document.cookie = "uid=" + encodeURIComponent(username) + "; path=/";
+    // Remove query params from URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    // Reload to show dashboard as logged in
+    location.reload();
+    return;
+  }
+})();
+
 document.addEventListener("DOMContentLoaded", () => {
+  // (Removed duplicate logToServer definition)
+
   // Guest vs. logged-in toggling is now handled by dashboard.js
   // --- Public profile view logic ---
   function showProfilePlayerFromUrl() {
@@ -43,373 +68,303 @@ document.addEventListener("DOMContentLoaded", () => {
         if (meHeading) meHeading.textContent = `${profileUid}'s Stream 🎙️`;
         const meDesc = document.querySelector("#me-page p");
         if (meDesc) meDesc.textContent = `This is ${profileUid}'s public stream.`;
-        // Load playlist for the given profileUid
-        loadProfilePlaylist(profileUid);
+        // Show a Play Stream button for explicit user action
+        const streamInfo = document.getElementById("stream-info");
+        if (streamInfo) {
+          streamInfo.innerHTML = "";
+          const playBtn = document.createElement('button');
+          playBtn.textContent = "▶ Play Stream";
+          playBtn.onclick = () => {
+            loadProfileStream(profileUid);
+            playBtn.disabled = true;
+          };
+          streamInfo.appendChild(playBtn);
+          streamInfo.hidden = false;
+        }
+        // Do NOT call loadProfileStream(profileUid) automatically!
       }
     }
   }
-  // Run on popstate (SPA navigation and browser back/forward)
-  window.addEventListener('popstate', showProfilePlayerFromUrl);
 
-  async function loadProfilePlaylist(uid) {
-    const meAudio = document.getElementById("me-audio");
-    if (!meAudio) return;
-    const resp = await fetch(`/user-files/${encodeURIComponent(uid)}`);
-    const data = await resp.json();
-    if (!data.files || !Array.isArray(data.files) || data.files.length === 0) {
-      meAudio.src = "";
-      return;
-    }
-    // Shuffle playlist
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
-    }
-    window.mePlaylist = shuffle(data.files.map(f => `/audio/${uid}/${f}`));
-    window.mePlaylistIdx = 0;
-    const newSrc = window.mePlaylist[window.mePlaylistIdx];
-    meAudio.src = newSrc;
-    meAudio.load();
-    meAudio.play().catch(() => {/* autoplay may be blocked, ignore */});
+  // --- Only run showProfilePlayerFromUrl after session/profile checks are complete ---
+  function runProfilePlayerIfSessionValid() {
+    if (typeof checkSessionValidity === "function" && !checkSessionValidity()) return;
+    showProfilePlayerFromUrl();
   }
-  window.loadProfilePlaylist = loadProfilePlaylist;
+  document.addEventListener("DOMContentLoaded", () => {
+    setTimeout(runProfilePlayerIfSessionValid, 200);
+  });
+  window.addEventListener('popstate', () => {
+    setTimeout(runProfilePlayerIfSessionValid, 200);
+  });
+  window.showProfilePlayerFromUrl = showProfilePlayerFromUrl;
 
-  // --- Playlist for #me-page ---
-  const mePageLink = document.getElementById("show-me");
-  const meAudio = document.getElementById("me-audio");
-  const copyUrlBtn = document.getElementById("copy-url");
-  if (copyUrlBtn) copyUrlBtn.onclick = () => {
-    const uid = localStorage.getItem("uid");
-    if (uid) {
-      const streamUrl = `${window.location.origin}/stream/${encodeURIComponent(uid)}`;
-      navigator.clipboard.writeText(streamUrl);
-      showToast(`Copied your stream URL: ${streamUrl}`);
-    } else {
-      showToast("No user stream URL available");
+  // Global audio state
+  let globalAudio = null;
+  let currentStreamUid = null;
+  let audioPlaying = false;
+  let lastPosition = 0;
+  
+  // Expose main audio element for other scripts
+  window.getMainAudio = () => globalAudio;
+  window.stopMainAudio = () => {
+    if (globalAudio) {
+      globalAudio.pause();
+      audioPlaying = false;
+      updatePlayPauseButton();
     }
   };
-  let mePlaylist = [];
-  let mePlaylistIdx = 0;
-  // Playlist UI is hidden, so do not render
+
+  function getOrCreateAudioElement() {
+    if (!globalAudio) {
+      globalAudio = document.getElementById('me-audio');
+      if (!globalAudio) {
+        console.error('Audio element not found');
+        return null;
+      }
+      // Set up audio element properties
+      globalAudio.preload = 'metadata'; // Preload metadata for better performance
+      globalAudio.crossOrigin = 'use-credentials'; // Use credentials for authenticated requests
+      globalAudio.setAttribute('crossorigin', 'use-credentials'); // Explicitly set the attribute
+      
+      // Set up event listeners
+      globalAudio.addEventListener('play', () => {
+        audioPlaying = true;
+        updatePlayPauseButton();
+      });
+      globalAudio.addEventListener('pause', () => {
+        audioPlaying = false;
+        updatePlayPauseButton();
+      });
+      globalAudio.addEventListener('timeupdate', () => lastPosition = globalAudio.currentTime);
+      
+      // Add error handling
+      globalAudio.addEventListener('error', (e) => {
+        console.error('Audio error:', e);
+        showToast('❌ Audio playback error');
+      });
+    }
+    return globalAudio;
+  }
+
+  // Function to update play/pause button state
+  function updatePlayPauseButton() {
+    const audio = getOrCreateAudioElement();
+    if (playPauseButton && audio) {
+      playPauseButton.textContent = audio.paused ? '▶' : '⏸️';
+    }
+  }
+
+  // Initialize play/pause button
+  const playPauseButton = document.getElementById('play-pause');
+  if (playPauseButton) {
+    // Set initial state
+    updatePlayPauseButton();
+    
+    // Add click handler
+    playPauseButton.addEventListener('click', () => {
+      const audio = getOrCreateAudioElement();
+      if (audio) {
+        if (audio.paused) {
+          // Stop any playing public streams first
+          const publicPlayers = document.querySelectorAll('.stream-player audio');
+          publicPlayers.forEach(player => {
+            if (!player.paused) {
+              player.pause();
+              const button = player.closest('.stream-player').querySelector('.play-pause');
+              if (button) {
+                button.textContent = '▶';
+              }
+            }
+          });
+          
+          audio.play().catch(e => {
+            console.error('Play failed:', e);
+            audioPlaying = false;
+          });
+        } else {
+          audio.pause();
+        }
+        updatePlayPauseButton();
+      }
+    });
+  }
+
+
+
+  // Preload audio without playing it
+  function preloadAudio(src) {
+    return new Promise((resolve) => {
+      const audio = new Audio();
+      audio.preload = 'auto';
+      audio.crossOrigin = 'anonymous';
+      audio.src = src;
+      audio.load();
+      audio.oncanplaythrough = () => resolve(audio);
+    });
+  }
+
+  // Load and play a stream
+  async function loadProfileStream(uid) {
+    const audio = getOrCreateAudioElement();
+    if (!audio) return null;
+    
+    // Always reset current stream and update audio source
+    currentStreamUid = uid;
+    audio.pause();
+    audio.src = '';
+    
+    // Wait a moment to ensure the previous source is cleared
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    // Set new source with cache-busting timestamp
+    audio.src = `/audio/${encodeURIComponent(uid)}/stream.opus?t=${Date.now()}`;
+    
+    // Try to play immediately
+    try {
+      await audio.play();
+      audioPlaying = true;
+    } catch (e) {
+      console.error('Play failed:', e);
+      audioPlaying = false;
+    }
+    
+    // Show stream info
+    const streamInfo = document.getElementById("stream-info");
+    if (streamInfo) streamInfo.hidden = false;
+    
+    // Update button state
+    updatePlayPauseButton();
+    
+    return audio;
+  }
+
+// Load and play a stream
+async function loadProfileStream(uid) {
+  const audio = getOrCreateAudioElement();
+  if (!audio) return null;
+
+  // Hide playlist controls
   const mePrevBtn = document.getElementById("me-prev");
   if (mePrevBtn) mePrevBtn.style.display = "none";
   const meNextBtn = document.getElementById("me-next");
   if (meNextBtn) meNextBtn.style.display = "none";
 
-  async function loadUserPlaylist() {
-    const uid = localStorage.getItem("uid");
-    if (!uid) return;
-    const resp = await fetch(`/user-files/${encodeURIComponent(uid)}`);
-    const data = await resp.json();
-    if (!data.files || !Array.isArray(data.files) || data.files.length === 0) {
-      meAudio.src = "";
-      return;
-    }
-    // Shuffle playlist
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-      return array;
-    }
-    mePlaylist = shuffle(data.files.map(f => `/audio/${uid}/${f}`));
-    mePlaylistIdx = 0;
-    const newSrc = mePlaylist[mePlaylistIdx];
-    const prevSrc = meAudio.src;
-    const wasPlaying = !meAudio.paused && !meAudio.ended && meAudio.currentTime > 0;
-    const fullNewSrc = window.location.origin + newSrc;
-    if (prevSrc !== fullNewSrc) {
-      meAudio.src = newSrc;
-      meAudio.load();
-    } // else: do nothing, already loaded
-    // Don't call load() if already playing the correct file
-    // Don't call load() redundantly
-    // Don't set src redundantly
-    // This prevents DOMException from fetch aborts
-  }
+  // Handle navigation to "Your Stream"
+  const mePageLink = document.getElementById("show-me");
+  if (mePageLink) {
+    mePageLink.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const uid = localStorage.getItem("uid");
+      if (!uid) return;
 
-  if (mePageLink && meAudio) {
-    mePageLink.addEventListener("click", async () => {
-      await loadUserPlaylist();
-      // Start playback from current index
-      if (mePlaylist.length > 0) {
-        const newSrc = mePlaylist[mePlaylistIdx];
-        const prevSrc = meAudio.src;
-        const fullNewSrc = window.location.origin + newSrc;
-        if (prevSrc !== fullNewSrc) {
-          meAudio.src = newSrc;
-          meAudio.load();
+      // Show loading state
+      const streamInfo = document.getElementById("stream-info");
+      if (streamInfo) {
+        streamInfo.hidden = false;
+        streamInfo.innerHTML = '<p>Loading stream...</p>';
+      }
+
+      try {
+        // Load the stream but don't autoplay
+        await loadProfileStream(uid);
+
+        // Update URL without triggering a full page reload
+        if (window.location.pathname !== '/') {
+          window.history.pushState({}, '', '/');
         }
-        meAudio.play();
-      }
-    });
-    meAudio.addEventListener("ended", () => {
-      if (mePlaylist.length > 1) {
-        mePlaylistIdx = (mePlaylistIdx + 1) % mePlaylist.length;
-        meAudio.src = mePlaylist[mePlaylistIdx];
-        meAudio.load();
-        meAudio.play();
-      } else if (mePlaylist.length === 1) {
-        // Only one file: restart
-        meAudio.currentTime = 0;
-        meAudio.load();
-        meAudio.play();
-      }
-    });
 
-    // Detect player stop and random play a new track
-    meAudio.addEventListener("pause", () => {
-      // Only trigger if playback reached the end and playlist has more than 1 track
-      if (meAudio.ended && mePlaylist.length > 1) {
-        let nextIdx;
-        do {
-          nextIdx = Math.floor(Math.random() * mePlaylist.length);
-        } while (nextIdx === mePlaylistIdx && mePlaylist.length > 1);
-        mePlaylistIdx = nextIdx;
-        meAudio.currentTime = 0;
-        meAudio.src = mePlaylist[mePlaylistIdx];
-        meAudio.load();
-        meAudio.play();
-        
+        // Show the me-page section
+        const mePage = document.getElementById('me-page');
+        if (mePage) {
+          document.querySelectorAll('main > section').forEach(s => s.hidden = s.id !== 'me-page');
+        }
+
+        // Clear loading state
+        const streamInfo = document.getElementById('stream-info');
+        if (streamInfo) {
+          streamInfo.innerHTML = '';
+        }
+      } catch (error) {
+        console.error('Error loading stream:', error);
+        const streamInfo = document.getElementById('stream-info');
+        if (streamInfo) {
+          streamInfo.innerHTML = '<p>Error loading stream. Please try again.</p>';
+        }
       }
     });
-    
-    
   }
 
-  const deleteBtn = document.getElementById("delete-account");
-  if (deleteBtn) deleteBtn.onclick = async () => {
-    if (!confirm("Are you sure you want to delete your account and all uploaded audio?")) return;
-    const res = await fetch("/delete-account", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uid })
-    });
-    if (res.ok) {
-      showToast("✅ Account deleted");
-      localStorage.removeItem("uid");
-      setTimeout(() => window.location.reload(), 2000);
-    } else {
-      const msg = (await res.json()).detail || res.status;
-      showToast("❌ Delete failed: " + msg);
-    }
-  };
+  // Always reset current stream and update audio source
+  currentStreamUid = uid;
+  audio.pause();
+  audio.src = '';
 
-  const fadeAllSections = () => {
-    const uid = localStorage.getItem('uid');
-    document.querySelectorAll("main > section").forEach(section => {
-      // Always keep upload-area visible for logged-in users
-      if (uid && section.id === 'upload-area') return;
-      if (!section.hidden) {
-        section.classList.add("fade-out");
-        setTimeout(() => {
-          section.classList.remove("fade-out");
-          section.hidden = true;
-        }, 300);
-      }
-    });
-  };
+  // Wait a moment to ensure the previous source is cleared
+  await new Promise(resolve => setTimeout(resolve, 50));
 
-  const dropzone = document.getElementById("upload-area");
-  dropzone.setAttribute("aria-label", "Upload area. Click or drop an audio file to upload.");
-  const fileInput = document.getElementById("fileInput");
-  const fileInfo = document.createElement("div");
-  fileInfo.id = "file-info";
-  fileInfo.style.textAlign = "center";
-  fileInput.parentNode.insertBefore(fileInfo, fileInput.nextSibling);
+  // Set new source with cache-busting timestamp
+  audio.src = `/audio/${encodeURIComponent(uid)}/stream.opus?t=${Date.now()}`;
+
+  // Try to play immediately
+  try {
+    await audio.play();
+    audioPlaying = true;
+  } catch (e) {
+    console.error('Play failed:', e);
+    audioPlaying = false;
+  }
+
+  // Show stream info
   const streamInfo = document.getElementById("stream-info");
-  const streamUrlEl = document.getElementById("streamUrl");
+  if (streamInfo) streamInfo.hidden = false;
 
-  const status = document.getElementById("status");
-  const spinner = document.getElementById("spinner");
+  // Update button state
+  updatePlayPauseButton();
 
-  const uid = localStorage.getItem("uid");
-  const uidTime = parseInt(localStorage.getItem("uid_time"), 10);
-  const now = Date.now();
-  // Hide register button if logged in
-  const registerBtn = document.getElementById("show-register");
-  if (uid && localStorage.getItem("confirmed_uid") === uid && uidTime && (now - uidTime) < 3600000) {
-    if (registerBtn) registerBtn.style.display = "none";
-  } else {
-    if (registerBtn) registerBtn.style.display = "";
-  }
-  if (!uid || !uidTime || (now - uidTime) > 3600000) {
-    localStorage.removeItem("uid");
-    localStorage.removeItem("confirmed_uid");
-    localStorage.removeItem("uid_time");
-    status.className = "error-toast";
-    status.innerText = "❌ Session expired. Please log in again.";
-    // Add Login or Register button only for this error
-    let loginBtn = document.createElement('button');
-    loginBtn.textContent = 'Login or Register';
-    loginBtn.className = 'login-register-btn';
-    loginBtn.onclick = () => {
-      document.querySelectorAll('main > section').forEach(sec => sec.hidden = sec.id !== 'register-page');
-    };
-    status.appendChild(document.createElement('br'));
-    status.appendChild(loginBtn);
-    // Remove the status div after a short delay so only toast remains
-    setTimeout(() => {
-      if (status.parentNode) status.parentNode.removeChild(status);
-    }, 100);
-    return;
-  }
-  const confirmed = localStorage.getItem("confirmed_uid");
-  if (!confirmed || uid !== confirmed) {
-    status.className = "error-toast";
-    status.innerText = "❌ Please confirm your account via email first.";
-    showToast(status.innerText);
-    return;
-  }
+  return audio;
+}
 
-  let abortController;
+// Export the function for use in other modules
+window.loadProfileStream = loadProfileStream;
 
-  const upload = async (file) => {
-    if (abortController) abortController.abort();
-    abortController = new AbortController();
-    fileInfo.innerText = `📁 ${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`;
-    if (file.size > 100 * 1024 * 1024) {
-      status.className = "error-toast";
-      status.innerText = "❌ Session expired. Please log in again.";
-      // Add Login or Register button only for this error
-      let loginBtn = document.createElement('button');
-      loginBtn.textContent = 'Login or Register';
-      loginBtn.className = 'login-register-btn';
-      loginBtn.onclick = () => {
-        document.querySelectorAll('main > section').forEach(sec => sec.hidden = sec.id !== 'register-page');
-      };
-      status.appendChild(document.createElement('br'));
-      status.appendChild(loginBtn);
-      showToast(status.innerText);
-      return;
-    }
-    spinner.style.display = "block";
-    status.innerHTML = '📡 Uploading…';
-    status.className = "uploading-toast";
-    fileInput.disabled = true;
-    dropzone.classList.add("uploading");
-    const formData = new FormData();
-    formData.append("uid", uid);
-    formData.append("file", file);
-
-    const res = await fetch("/upload", {
-      signal: abortController.signal,
-      method: "POST",
-      body: formData,
+document.addEventListener("DOMContentLoaded", () => {
+  // Initialize play/pause button
+  const playPauseButton = document.getElementById('play-pause');
+  if (playPauseButton) {
+    // Set initial state
+    audioPlaying = false;
+    updatePlayPauseButton();
+    
+    // Add event listener
+    playPauseButton.addEventListener('click', () => {
+      const audio = getMainAudio();
+      if (audio) {
+        if (audio.paused) {
+          audio.play();
+        } else {
+          audio.pause();
+        }
+        updatePlayPauseButton();
+      }
     });
+  }
 
-    let data, parseError;
-    try {
-      data = await res.json();
-    } catch (e) {
-      parseError = e;
-    }
-    if (!data) {
-      status.className = "error-toast";
-      status.innerText = "❌ Upload failed: " + (parseError && parseError.message ? parseError.message : "Unknown error");
-      showToast(status.innerText);
-      spinner.style.display = "none";
-      fileInput.disabled = false;
-      dropzone.classList.remove("uploading");
-      return;
-    }
-    if (res.ok) {
-      status.className = "success-toast";
-      streamInfo.hidden = false;
-      streamInfo.innerHTML = `
-        <p>Your stream is now live:</p>
-        <audio controls id="me-audio" aria-label="Stream audio player. Your uploaded voice loop plays here.">
-          <p style='font-size: 0.9em; text-align: center;'>🔁 This stream loops forever</p>
-          <source src="${data.stream_url}" type="audio/ogg">
-        </audio>
-        <p><a href="${data.stream_url}" target="_blank" class="button" aria-label="Open your stream in a new tab">Open in external player</a></p>
-      `;
-      const meAudio = document.getElementById("me-audio");
-      meAudio.addEventListener("ended", () => {
-        if (mePlaylist.length > 1) {
-          mePlaylistIdx = (mePlaylistIdx + 1) % mePlaylist.length;
-          meAudio.src = mePlaylist[mePlaylistIdx];
-          meAudio.load();
-        meAudio.play();
-          meUrl.value = mePlaylist[mePlaylistIdx];
-        } else if (mePlaylist.length === 1) {
-          // Only one file: restart
-          meAudio.currentTime = 0;
-          meAudio.load();
-        meAudio.play();
-        }
-      });
-      if (data.quota && data.quota.used_mb !== undefined) {
-        const bar = document.getElementById("quota-bar");
-        const text = document.getElementById("quota-text");
-        const quotaSec = document.getElementById("quota-meter");
-        if (bar && text && quotaSec) {
-          quotaSec.hidden = false;
-          const used = parseFloat(data.quota.used_mb);
-          bar.value = used;
-          bar.max = 100;
-          text.textContent = `${used.toFixed(1)} MB used`;
-        }
+  // Add bot protection for registration form
+  const registerForm = document.getElementById('register-form');
+  if (registerForm) {
+    registerForm.addEventListener('submit', (e) => {
+      const botTrap = e.target.elements.bot_trap;
+      if (botTrap && botTrap.value) {
+        e.preventDefault();
+        showToast('❌ Bot detected! Please try again.');
+        return false;
       }
-      spinner.style.display = "none";
-      fileInput.disabled = false;
-      dropzone.classList.remove("uploading");
-      showToast(status.innerText);
-      status.innerText = "✅ Upload successful.";
+      return true;
+    });
+  }
 
-      playBeep(432, 0.25, "sine");
-
-      setTimeout(() => status.innerText = "", 5000);
-      streamInfo.classList.add("visible", "slide-in");
-    } else {
-      streamInfo.hidden = true;
-      status.className = "error-toast";
-      spinner.style.display = "none";
-      if ((data.detail || data.error || "").includes("music")) {
-        status.innerText = "🎵 Upload rejected: singing or music detected.";
-      } else {
-        status.innerText = `❌ Upload failed: ${data.detail || data.error}`;
-      }
-      showToast(status.innerText);
-      fileInput.value = null;
-      dropzone.classList.remove("uploading");
-      fileInput.disabled = false;
-      streamInfo.classList.remove("visible", "slide-in");
-    }
-  };
-
-  dropzone.addEventListener("click", () => {
-  console.log("[DEBUG] Dropzone clicked");
-  fileInput.click();
-  console.log("[DEBUG] fileInput.click() called");
-});
-  dropzone.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    dropzone.classList.add("dragover");
-    dropzone.style.transition = "background-color 0.3s ease";
-  });
-  dropzone.addEventListener("dragleave", () => {
-    dropzone.classList.remove("dragover");
-  });
-  dropzone.addEventListener("drop", (e) => {
-    dropzone.classList.add("pulse");
-    setTimeout(() => dropzone.classList.remove("pulse"), 400);
-    e.preventDefault();
-    dropzone.classList.remove("dragover");
-    const file = e.dataTransfer.files[0];
-    if (file) upload(file);
-  });
-  fileInput.addEventListener("change", (e) => {
-    status.innerText = "";
-    status.className = "";
-    const file = e.target.files[0];
-    if (file) upload(file);
-  });
-
+  // Initialize navigation
   document.querySelectorAll('#links a[data-target]').forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
@@ -425,5 +380,35 @@ document.addEventListener("DOMContentLoaded", () => {
       const burger = document.getElementById('burger-toggle');
       if (burger && burger.checked) burger.checked = false;
     });
+  });
+
+  // Initialize profile player if valid session
+  setTimeout(runProfilePlayerIfSessionValid, 200);
+  window.addEventListener('popstate', () => {
+    setTimeout(runProfilePlayerIfSessionValid, 200);
+  });
+});
+  // Initialize navigation
+  document.querySelectorAll('#links a[data-target]').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = link.getAttribute('data-target');
+      // Only hide other sections when not opening #me-page
+      if (target !== 'me-page') fadeAllSections();
+      const section = document.getElementById(target);
+      if (section) {
+        section.hidden = false;
+        section.classList.add("slide-in");
+        section.scrollIntoView({ behavior: "smooth" });
+      }
+      const burger = document.getElementById('burger-toggle');
+      if (burger && burger.checked) burger.checked = false;
+    });
+  });
+
+  // Initialize profile player if valid session
+  setTimeout(runProfilePlayerIfSessionValid, 200);
+  window.addEventListener('popstate', () => {
+    setTimeout(runProfilePlayerIfSessionValid, 200);
   });
 });

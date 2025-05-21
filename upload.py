@@ -78,16 +78,15 @@ async def upload(request: Request, db = Depends(get_db), uid: str = Form(...), f
         original_size = raw_path.stat().st_size
         raw_path.unlink(missing_ok=True)  # cleanup
 
-        # Always copy latest upload as stream.opus for redirect compatibility
-        import shutil
-        stream_path = user_dir / "stream.opus"
-        shutil.copy2(processed_path, stream_path)
-
-        # Also update ./data/{uid}/stream.opus for public stream listing
-        streams_dir = Path("data") / uid
-        streams_dir.mkdir(parents=True, exist_ok=True)
-        streams_stream_path = streams_dir / "stream.opus"
-        shutil.copy2(processed_path, streams_stream_path)
+        # Concatenate all .opus files in random order to stream.opus for public playback
+        from concat_opus import concat_opus_files
+        try:
+            concat_opus_files(user_dir, user_dir / "stream.opus")
+        except Exception as e:
+            # fallback: just use the latest processed file if concat fails
+            import shutil
+            stream_path = user_dir / "stream.opus"
+            shutil.copy2(processed_path, stream_path)
 
         db.add(UploadLog(
             uid=uid,
@@ -106,7 +105,6 @@ async def upload(request: Request, db = Depends(get_db), uid: str = Form(...), f
         db.commit()
 
         return {
-            "stream_url": f"http://localhost:8000/streams/{uid}/stream.opus",
             "filename": file.filename,
             "original_size": round(original_size / 1024, 1),
             "quota": {

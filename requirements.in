@@ -1,0 +1,14 @@
+fastapi==0.115.12
+httptools==0.6.4
+pip==25.0.1
+psycopg2-binary==2.9.10
+python-dotenv==1.1.0
+python-multipart==0.0.20
+PyYAML==6.0.2
+setuptools==66.1.1
+slowapi==0.1.9
+sqlmodel==0.0.24
+uvicorn==0.34.2
+uvloop==0.21.0
+watchfiles==1.0.5
+websockets==15.0.1
