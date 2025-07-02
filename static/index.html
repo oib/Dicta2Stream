@@ -3,6 +3,8 @@
 <html lang="en">
 <head>
   <link rel="stylesheet" href="/static/style.css" media="all" />
+  <link rel="stylesheet" href="/static/desktop.css" media="(min-width: 960px)">
+  <link rel="stylesheet" href="/static/mobile.css" media="(max-width: 959px)">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -32,24 +34,32 @@
   
     <!-- Guest Dashboard -->
     <nav id="guest-dashboard" class="dashboard-nav">
-      <a href="#" id="guest-welcome" data-target="welcome-page">Welcome</a> |
-      <a href="#" id="guest-streams" data-target="stream-page">Streams</a> |
-      <a href="#" id="guest-login" data-target="register-page">Login or Register</a>
+      <a href="#welcome-page" id="guest-welcome">Welcome</a>
+      <a href="#stream-page" id="guest-streams">Streams</a>
+      <a href="#register-page" id="guest-login">Account</a>
     </nav>
 
     <!-- User Dashboard -->
     <nav id="user-dashboard" class="dashboard-nav" style="display:none;">
-      <a href="#" id="user-welcome" data-target="welcome-page">Welcome</a> |
-      <a href="#" id="user-streams" data-target="stream-page">Streams</a> |
-      <a href="#" id="show-me" data-target="me-page">Your Stream</a>
+      <a href="#welcome-page" id="user-welcome">Welcome</a>
+      <a href="#stream-page" id="user-streams">Streams</a>
+      <a href="#me-page" id="show-me">Your Stream</a>
     </nav>
     <section id="me-page">
+      <div style="position: relative; margin: 0 0 1.5rem 0; text-align: center;">
+        <h2 style="margin: 0; padding: 0; line-height: 1; display: inline-block; position: relative; text-align: center;">
+          Your Stream
+        </h2>
+        <div style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; gap: 0.5rem;">
+          <button id="delete-account-button" class="delete-account-btn" style="font-size: 1rem; padding: 0.4em 0.8em; white-space: nowrap; display: none; background-color: #ff4444; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Delete Account</button>
+          <button id="logout-button" class="logout-btn" style="font-size: 1rem; padding: 0.4em 0.8em; white-space: nowrap; display: none;">🚪 LogOut</button>
+        </div>
+      </div>
       <article>
-        <h2>Your Stream 🎙️</h2>
         <p>This is your personal stream. Only you can upload to it.</p>
         <audio id="me-audio"></audio>
         <div class="audio-controls">
-          <button id="play-pause" type="button">▶️</button>
+          <button class="play-pause-btn" type="button" aria-label="Play">▶️</button>
         </div>
       </article>
       <section id="user-upload-area" class="dropzone">
@@ -65,9 +75,9 @@
     <!-- Burger menu and legacy links section removed for clarity -->
 
     <section id="terms-page" hidden>
+      <h2>Terms of Service</h2>
       <article>
-        <h2>Terms of Service</h2>
-        <p>By accessing or using dicta2stream.net (the “Service”), you agree to be bound by these Terms of Service (“Terms”). If you do not agree, do not use the Service.</p>
+        <p>By accessing or using dicta2stream.net (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the Service.</p>
         <ul>
           <li>You must be at least 18 years old to register.</li>
           <li>Each account must be unique and used by only one person.</li>
@@ -77,13 +87,12 @@
           <li>Uploads are limited to 100 MB and must be voice only.</li>
           <li>Music/singing will be rejected.</li>
         </ul>
-        
       </article>
     </section>
 
     <section id="privacy-page" hidden>
+      <h2>Privacy Policy</h2>
       <article>
-        <h2>Privacy Policy</h2>
         <ul>
           <li><strong>Users</strong>: Session uses both cookies and localStorage to store UID and authentication state.</li>
           <li><strong>Guests</strong>: No cookies are set. No persistent identifiers are stored.</li>
@@ -91,22 +100,20 @@
           <li>Uploads are scanned via Whisper+Ollama but not stored as transcripts.</li>
           <li>Data is never sold. Contact us for account deletion.</li>
         </ul>
-        
       </article>
     </section>
 
     <section id="imprint-page" hidden>
+      <h2>Imprint</h2>
       <article>
-        <h2>Imprint</h2>
         <p><strong>Andreas Michael Fleckl</strong></p>
         <p>Johnstrassse 7/6<br>1140 Vienna<br>Austria / Europe</p>
-        
       </article>
     </section>
 
     <section id="welcome-page">
+      <h2>Welcome</h2>
       <article>
-        <h2>Welcome</h2>
         <p>dicta2stream is a minimalist voice streaming platform for your spoken audio anonymously under a nickname in a loop. <br><br>
         <strong>What you can do here:</strong></p>
         <ul>
@@ -119,16 +126,14 @@
       </article>
     </section>
     <section id="stream-page" hidden>
-      <article>
-        <h2>🎧 Public Streams</h2>
-        <!-- The list below is dynamically populated by streams-ui.js; shows 'Loading...' while fetching -->
-        <ul id="stream-list"><li>Loading...</li></ul>
-      </article>
+      <h2>Public Streams</h2>
+      <!-- The list below is dynamically populated by streams-ui.js; shows 'Loading...' while fetching -->
+      <ul id="stream-list"><li>Loading...</li></ul>
     </section>
 
     <section id="register-page" hidden>
+      <h2>Account</h2>
       <article>
-        <h2>Login or Register</h2>
         <form id="register-form">
           <p><label>Email<br><input type="email" name="email" required /></label></p>
           <p><label>Username<br><input type="text" name="user" required /></label></p>
@@ -137,7 +142,7 @@
               <input type="text" name="bot_trap" autocomplete="off" />
             </label>
           </p>
-          <p><button type="submit">Create Account</button></p>
+          <p><button type="submit">Login / Create Account</button></p>
         </form>
         <p><small>You’ll receive a magic login link via email. No password required.</small></p>
         <p style="font-size: 0.85em; opacity: 0.65; margin-top: 1em;">Your session expires after 1 hour. Shareable links redirect to homepage.</p>
@@ -147,6 +152,12 @@
 
     <section id="quota-meter" hidden>
       <p class="quota-meter">Quota: <progress id="quota-bar" value="0" max="100"></progress> <span id="quota-text">0 MB used</span></p>
+      <div id="uploaded-files" style="margin-top: 10px; font-size: 0.9em;">
+        <div style="font-weight: bold; margin-bottom: 5px;">Uploaded Files:</div>
+        <div id="file-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #333; padding: 5px; border-radius: 4px; background: #1a1a1a;">
+          <div style="padding: 5px 0; color: #888; font-style: italic;">Loading files...</div>
+        </div>
+      </div>
     </section>
 
 
@@ -157,8 +168,8 @@
     <p class="footer-hint">Need more space? Contact<a href="mailto:Andreas.Fleckl@dicta2stream.net">Andreas.Fleckl@dicta2stream.net</a></p>
 
     <p class="footer-links">
-      <a href="#" id="footer-terms" data-target="terms-page">Terms of Service</a> |
-      <a href="#" id="footer-privacy" data-target="privacy-page">Privacy Policy</a> |
+      <a href="#" id="footer-terms" data-target="terms-page">Terms</a> |
+      <a href="#" id="footer-privacy" data-target="privacy-page">Privacy</a> |
       <a href="#" id="footer-imprint" data-target="imprint-page">Imprint</a>
     </p>
   </footer>

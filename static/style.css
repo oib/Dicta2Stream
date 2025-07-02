@@ -4,6 +4,93 @@ main {
   align-items: center; /* centers children horizontally */
 }
 
+/* Global section styles */
+main > section {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 1.5rem 0;
+  padding: 0; /* Remove padding from section, will be handled by inner elements */
+  box-sizing: border-box;
+  background: var(--crt-screen, #1a1a1a);
+  border-radius: 8px;
+  overflow: hidden; /* Ensures border-radius clips child elements */
+}
+
+/* Ensure consistent background for all sections */
+#welcome-page,
+#register-page,
+#stream-page,
+#me-page,
+#terms-page,
+#privacy-page,
+#imprint-page {
+  background: var(--crt-screen, #1a1a1a);
+}
+
+/* Style articles within sections */
+section > article {
+  background: transparent;
+  padding: 0;
+  margin: 0 auto;
+  box-shadow: none;
+  color: #f0f0f0;
+  max-width: 400px;
+  width: 100%;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
+}
+
+/* Center the register form */
+#register-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+#register-form p {
+  margin: 0.5rem 0;
+  width: 100%;
+}
+
+#register-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+#register-form input[type="email"],
+#register-form input[type="text"] {
+  width: 100%;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+#register-form button[type="submit"] {
+  margin-top: 1rem;
+  width: calc(250px + 1.6em);
+  padding: 0.75rem;
+  cursor: pointer;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Style text inputs in register form */
+#register-page #register-form input[type="email"],
+#register-page #register-form input[type="text"] {
+  width: calc(250px + 1.6em);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Add subtle dividers between sections */
+section + section,
+article + article {
+  border-top: 1px solid #444;
+}
+
 nav#guest-dashboard.dashboard-nav {
   width: fit-content; /* optional: shrink to fit content */
   margin: 0 auto;     /* fallback for block centering */
@@ -20,21 +107,29 @@ nav#guest-dashboard.dashboard-nav {
   flex-direction: column;
   align-items: center;
   pointer-events: none;
+  min-width: 300px;
+  max-width: 90%;
 }
 
 .toast {
-  background: var(--crt-screen);
-  color: var(--crt-text);
-  padding: 1em 2em;
+  background: rgba(30, 30, 30, 0.95);
+  color: #fff;
+  padding: 1.2em 2em;
   border-radius: 8px;
-  box-shadow: 0 4px 20px var(--crt-shadow);
-  margin-top: 0.5em;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  margin-top: 0.8em;
   opacity: 0;
   animation: fadeInOut 3.5s both;
   font-size: 1.1em;
   pointer-events: auto;
-  border: 1px solid var(--crt-border);
-  text-shadow: 0 0 2px rgba(0, 255, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  line-height: 1.5;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  transform: translateZ(0);
+  will-change: transform, opacity;
 }
 
 @keyframes fadeInOut {
@@ -137,53 +232,102 @@ audio {
   background: #fff;
 }
 
+/* Audio controls base styles */
 .audio-controls {
   display: flex;
   justify-content: center;
-  margin: 1.5em 0;
-  padding: 1em;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0;
+  width: 100%;
+}
+
+/* Specific styles for play/pause button in me-page */
+#me-page .audio-controls button {
+  border: 2px solid #444; /* Default border color */
+  transition: all 0.2s ease;
+}
+
+#me-page .audio-controls button:hover {
+  background: #222;
+  transform: scale(1.05);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  border-color: #666;
 }
 
 .audio-controls button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 1.2em;
+  background: rgba(26, 26, 26, 0.9);
+  border: 2px solid #444;
   border-radius: 12px;
-  transition: all 0.2s ease;
+  color: #f0f0f0;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 96px;
-  min-height: 96px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  font-size: 48px;
-  font-weight: bold;
-  line-height: 1;
-  color: #333;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  margin: 0.5rem;
+  transition: all 0.2s ease;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Play/Pause button specific styles */
+.audio-controls button#play-pause,
+.audio-controls button#play-pause-devuser {
+  width: 80px;
+  height: 80px;
+  font-size: 3rem;
+  background: rgba(34, 34, 34, 0.95);
+}
+
+/* Hover and active states */
 .audio-controls button:hover {
-  background-color: #f0f0f0;
-  transform: scale(1.1);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  background: #222;
+  transform: scale(1.05);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  border-color: #666;
 }
 
 .audio-controls button:active {
-  color: #000;
-  transform: scale(0.9);
+  transform: scale(0.98);
+}
+
+/* Ensure touch targets are large enough on mobile */
+@media (max-width: 959px) {
+  .audio-controls {
+    gap: 1rem;
+  }
+  
+  .audio-controls button {
+    min-width: 64px;
+    min-height: 64px;
+  }
+  
+  .audio-controls button#play-pause,
+  .audio-controls button#play-pause-devuser {
+    min-width: 80px;
+    min-height: 80px;
+  }
+}
+
+.audio-controls button:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background: #1a1a1a;
 }
 
 .audio-controls svg {
-  fill: #333;
+  width: 40px;
+  height: 40px;
+  fill: currentColor;
   transition: all 0.2s ease;
-  width: 56px;
-  height: 56px;
 }
 
-.audio-controls button:hover svg {
-  fill: #000;
-  transform: scale(1.1);
+.audio-controls button#play-pause svg {
+  width: 56px;
+  height: 56px;
 }
 
 /* Hide the native controls */
@@ -210,16 +354,6 @@ main > section {
   color: var(--audio-text);
   text-shadow: 0 0 2px rgba(255, 102, 0, 0.2);
   position: relative;
-}
-
-main > section article {
-  background: #222;
-  border: 1px solid #444;
-  padding: 1.5em;
-  border-radius: 6px;
-  margin-bottom: 1em;
-  position: relative;
-  color: #d3d3d3; /* Light gray for better contrast */
 }
 
 main > section article::before {
@@ -262,7 +396,6 @@ button.audio-control {
 #register-form {
   max-width: 400px;
   margin: 0 auto;
-  padding: 20px;
   text-align: center;
 }
 
@@ -367,13 +500,10 @@ button.audio-control:hover {
 
 /* Stream player styling */
 .stream-player {
-  background: #1a1a1a;
-  border: 1px solid #444;
-  padding: 1.5em;
-  border-radius: 8px;
-  margin-bottom: 1em;
+  background: transparent;
+  border: none;
   position: relative;
-  color: #d3d3d3;
+  overflow: hidden;
 }
 
 .stream-player::before {
@@ -562,12 +692,87 @@ input[disabled], button[disabled] {
   background: #fff !important;
 }
 
-body {
-  font-family: sans-serif;
-  background: #fafafa;
+/* Base document styles */
+html {
+  height: 100%;
+  min-height: 100%;
   margin: 0;
-  padding: 1em;
-  color: #333;
+  padding: 0;
+  background-color: #111;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(188, 183, 107, 0.1) 0,  /* Olive color */
+      rgba(188, 183, 107, 0.1) 1px,
+      transparent 1px,
+      transparent 20px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(188, 183, 107, 0.1) 0,  /* Olive color */
+      rgba(188, 183, 107, 0.1) 1px,
+      transparent 1px,
+      transparent 20px
+    );
+  background-size: 40px 40px;
+  background-repeat: repeat;
+  background-attachment: fixed;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  color: #f0f0f0;
+  font-family: sans-serif;
+  line-height: 1.6;
+  background: transparent;
+}
+
+/* Ensure main content stretches to fill available space */
+main {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+main > section {
+  width: 100%;
+  max-width: inherit;
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: var(--crt-screen, #1a1a1a);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+section > article {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+}
+
+/* Fallback for browsers that don't support flexbox */
+@supports not (display: flex) {
+  html {
+    background: #111;
+  }
+  
+  body {
+    min-height: 100%;
+  }
+  
+  main {
+    min-height: 100vh;
+  }
 }
 
 header h1 {
@@ -585,7 +790,6 @@ header p {
 
 header, footer {
   text-align: center;
-  margin-bottom: 1.5em;
 }
 
 footer p {
@@ -761,15 +965,10 @@ a.button:hover {
   background: #256b45;
 }
 
-section article {
-  max-width: 600px;
-  margin: 2em auto;
-  padding: 1.5em;
-  background: #fff;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
+/* Stream page specific styles */
+/* Article styles moved to desktop.css */
 
+/* Specific styles for stream player */
 section article.stream-page {
   max-width: 800px;
   margin: 0 auto;
@@ -779,9 +978,7 @@ section article.stream-page {
 .stream-player {
   background: #1a1a1a;
   border: 1px solid #444;
-  padding: 1.5em;
   border-radius: 8px;
-  margin-bottom: 1em;
   position: relative;
   color: #d3d3d3;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -797,34 +994,31 @@ section article.stream-page {
   margin-bottom: 15px;
 }
 
-.audio-controls {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 10px;
+/* Stream audio controls (specific to stream items) */
+.stream-audio .audio-controls {
+  margin: 0;
+  padding: 0;
+  gap: 1.5rem;
 }
 
-.audio-controls button {
+.stream-audio .audio-controls button {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  margin: 0;
+  font-size: 3rem;
   background: none;
   border: none;
-  cursor: pointer;
-  padding: 12px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  font-size: 24px;
-  font-weight: bold;
-  color: #666;
+  box-shadow: none;
+  color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: auto;
+  min-height: auto;
 }
 
-.audio-controls button:hover {
-  background-color: #f0f0f0;
-  color: #333;
-  transform: scale(1.05);
-}
-
-.audio-controls button:active {
-  color: #000;
-  transform: scale(0.95);
-}
+/* Play button styles are now consolidated above */
 
 .stream-info {
   margin: 0;
@@ -832,39 +1026,214 @@ section article.stream-page {
   font-size: 0.9em;
 }
 
-ul#stream-list,
-ul#me-files {
-  padding-left: 0;
+/* Stream list styles */
+#stream-page article {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* User upload area styles */
+#user-upload-area {
+  width: 100%;
+  margin: 1.5rem auto;
+  padding: 1.5rem;
+  background: var(--crt-screen);
+  border: 1px solid #444;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#user-upload-area:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(45deg, rgba(255, 102, 0, 0.05), rgba(255, 102, 0, 0.02));
+  border: 1px solid #ff6600;
+}
+
+#user-upload-area p {
+  margin: 0;
+  color: #ddd;
+  font-size: 1.1rem;
+}
+
+#stream-list {
   list-style: none;
-  text-align: center;
-  margin-top: 1em;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  display: grid;
+  gap: 1.5rem;
+  width: 100%;
 }
 
-ul#stream-list li a,
-ul#me-files li {
-  display: inline-flex;
-  align-items: center;
+#stream-list > li {
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#stream-list > li:hover {
+  transform: translateY(-2px);
+  border-color: #ff6600;
+}
+
+.stream-player {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1e1e1e;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  transition: all 0.25s ease;
+}
+
+.stream-player:hover {
+  transform: translateY(-2px);
+  border-color: #ff6600;
+  background: linear-gradient(45deg, rgba(255, 102, 0, 0.05), rgba(255, 102, 0, 0.02));
+}
+
+.stream-player h3 {
+  margin: 0 0 1.25rem;
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 500;
+  text-align: center;
+  word-break: break-word;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.stream-info {
+  margin: 1.25rem 0 0;
+  color: #a0a0a0 !important;
+  font-size: 0.9rem !important;
+  text-align: center;
+  line-height: 1.6;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Stream list styles */
+#stream-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1.25rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+#stream-list li {
+  background: transparent;
+  margin: 0 0 1rem 0;
+  padding: 0;
+  transition: transform 0.2s ease;
+}
+
+#stream-list li:hover {
+  transform: translateY(-2px);
+}
+
+#stream-list a {
+  color: #4dabf7;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+#stream-list a:hover {
+  color: #74c0fc;
+  text-decoration: underline;
+}
+
+#stream-list .stream-meta {
+  display: block;
+  color: #888;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+/* User upload area */
+#user-upload-area {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto 1.5rem;
+  padding: 1.5rem;
+  background: var(--crt-screen, #1a1a1a);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure consistent audio player container */
+.stream-audio {
+  width: 100%;
+  margin: 1rem 0 0;
+}
+
+/* Style for the play button container */
+.audio-controls-container {
+  display: flex;
   justify-content: center;
-  margin: 0.3em auto;
-  padding: 0.4em 0.8em;
-  border-radius: 6px;
-  background: #f0f0f0;
-  font-size: 0.95em;
-  max-width: 90%;
-  gap: 1em;
-  color: #333;
+  width: 100%;
+  margin-top: 1rem;
 }
 
-ul#stream-list li a:hover,
-ul#me-files li:hover {
-  background: #e5f5ec;
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  #stream-page article {
+    padding: 1rem;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+  
+  #stream-list {
+    gap: 1rem;
+  }
+  
+  .stream-player {
+    padding: 1rem;
+  }
 }
 
-section article h2 {
+/* Section h2 headers */
+main > section > h2 {
   text-align: center;
-  margin-top: 0;
-  margin-bottom: 0.6em;
+  margin: 0;
+  padding: 1rem 1.5rem;
+  color: #f0f0f0;
+  font-size: 1.8rem;
+  font-weight: 500;
 }
+
+/* Article styles consolidated above */
+
+/* Stream page specific styles */
+#stream-page > article {
+  max-width: 1200px; /* Wider for the stream list */
+  padding: 2rem 1rem; /* Match padding of other sections */
+  margin: 0 auto; /* Ensure centering */
+}
+
+/* Full width for form elements */
+#register-page article,
+#me-page > article {
+  max-width: 100%;
+}
+
+/* Add padding to the bottom of sections that only contain an h2 */
+main > section:has(> h2:only-child) {
+  padding-bottom: 1.5rem;
+}
+
+/* Space between h2 and logout button is now handled inline */
 
 section article a[href^="mailto"]::before {
   content: "✉️ ";
@@ -942,18 +1311,8 @@ main::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(0, 255, 0, 0.05),
-    rgba(0, 255, 0, 0.05) 2px,
-    transparent 2px,
-    transparent 4px
-  );
-  pointer-events: none;
-  z-index: -1;
+  /* Removed olive gradient overlay */
+  display: none;
 }
 
 nav#guest-dashboard.dashboard-nav,
@@ -967,14 +1326,12 @@ nav#user-dashboard.dashboard-nav {
   font-family: 'Courier New', monospace;
 }
 
+/* Dashboard nav base styles (moved to desktop.css and mobile.css) */
 nav.dashboard-nav a {
   color: #d3d3d3;
   text-decoration: none;
   font-family: 'Courier New', monospace;
-  margin: 0 0.5em;
-  padding: 5px;
-  border-radius: 3px;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 nav.dashboard-nav a:hover {
@@ -1015,6 +1372,22 @@ footer p.footer-hint a:hover {
 }
 
 @media (min-width: 960px) {
+  /* Set max-width for content sections */
+  #register-page > article,
+  #me-page > article,
+  #user-upload-area {
+    max-width: 600px;
+    padding: 2rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  #stream-page > article {
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
   section#links {
     display: flex;
     flex-direction: column;
@@ -1068,28 +1441,6 @@ footer p.footer-hint a:hover {
   transition: all 0.3s ease;
 }
 
-@media (max-width: 959px) {
-  #burger-label {
-    display: block;
-  }
-
-  section#links {
-    display: none;
-    background: #fff;
-    position: absolute;
-    top: 3.2em;
-    right: 1em;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    padding: 1em;
-    z-index: 10;
-  }
-
-  #burger-toggle:checked + #burger-label + section#links {
-    display: block;
-  }
-}
 
 @keyframes slideFadeIn {
   0% {
@@ -1111,4 +1462,39 @@ footer p.footer-hint a:hover {
     opacity: 0;
     transform: translateY(-10px);
   }
+}
+
+/* Logout button styles */
+.logout-btn {
+  background: rgba(34, 34, 34, 0.95);
+  color: #f0f0f0;
+  border: 2px solid #444;
+  border-radius: 6px;
+  padding: 0.5em 1em;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1.2rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  text-transform: none;
+  letter-spacing: normal;
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+.logout-btn:hover {
+  background: #222;
+  transform: scale(1.05);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  border-color: #666;
+}
+
+.logout-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }

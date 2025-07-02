@@ -47,9 +47,22 @@ export async function initMagicLogin() {
         localStorage.setItem('uid', data.confirmed_uid);
         localStorage.setItem('confirmed_uid', data.confirmed_uid);
         localStorage.setItem('uid_time', Date.now().toString());
-        import('./toast.js').then(({ showToast }) => showToast('✅ Login successful!'));
-        // Optionally reload or navigate
-        setTimeout(() => location.reload(), 700);
+        import('./toast.js').then(({ showToast }) => {
+          showToast('✅ Login successful!');
+          // Update UI state after login
+          const guestDashboard = document.getElementById('guest-dashboard');
+          const userDashboard = document.getElementById('user-dashboard');
+          const registerPage = document.getElementById('register-page');
+          
+          if (guestDashboard) guestDashboard.style.display = 'none';
+          if (userDashboard) userDashboard.style.display = 'block';
+          if (registerPage) registerPage.style.display = 'none';
+          
+          // Show the user's stream page
+          if (window.showOnly) {
+            window.showOnly('me-page');
+          }
+        });
         return;
       }
       alert(data.detail || 'Login failed.');

@@ -1,0 +1,22 @@
+[Unit]
+Description=Dicta2Stream FastAPI application (Gunicorn)
+After=network.target
+
+[Service]
+User=oib
+Group=www-data
+WorkingDirectory=/home/oib/games/dicta2stream
+Environment="PATH=/home/oib/games/dicta2stream/venv/bin"
+Environment="PYTHONPATH=/home/oib/games/dicta2stream"
+ExecStart=/home/oib/games/dicta2stream/venv/bin/gunicorn -c gunicorn_config.py main:app
+Restart=always
+RestartSec=5
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

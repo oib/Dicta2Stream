@@ -88,12 +88,22 @@ async def upload(request: Request, db = Depends(get_db), uid: str = Form(...), f
             stream_path = user_dir / "stream.opus"
             shutil.copy2(processed_path, stream_path)
 
-        db.add(UploadLog(
+        # Create a log entry with the original filename
+        log = UploadLog(
             uid=uid,
             ip=request.client.host,
-            filename=file.filename,
+            filename=file.filename,  # Store original filename
+            processed_filename=unique_name,  # Store the processed filename
             size_bytes=original_size
-        ))
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+        
+        # Rename the processed file to include the log ID for better tracking
+        processed_with_id = user_dir / f"{log.id}_{unique_name}"
+        processed_path.rename(processed_with_id)
+        processed_path = processed_with_id
 
         # Store updated quota
         size = processed_path.stat().st_size

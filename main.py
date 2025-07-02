@@ -1,6 +1,6 @@
 # main.py — FastAPI backend entrypoint for dicta2stream
 
-from fastapi import FastAPI, Request, Response, status, Form, UploadFile, File, Depends
+from fastapi import FastAPI, Request, Response, status, Form, UploadFile, File, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,12 +40,20 @@ app = FastAPI(debug=debug_mode)
 
 # --- CORS Middleware for SSE and API access ---
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+
+# Add GZip middleware for compression
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://dicta2stream.net", "http://localhost:8000", "http://127.0.0.1:8000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["Content-Type", "Content-Length", "Cache-Control", "ETag", "Last-Modified"],
+    max_age=3600,  # 1 hour
 )
 
 from fastapi.staticfiles import StaticFiles
@@ -125,7 +133,9 @@ from list_user_files import router as list_user_files_router
 app.include_router(streams_router)
 
 from list_streams import router as list_streams_router
+from account_router import router as account_router
 
+app.include_router(account_router)
 app.include_router(register_router)
 app.include_router(magic_router)
 app.include_router(upload_router)
@@ -134,6 +144,10 @@ app.include_router(list_streams_router)
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve audio files
+os.makedirs("data", exist_ok=True)  # Ensure the data directory exists
+app.mount("/audio", StaticFiles(directory="data"), name="audio")
 
 @app.post("/log-client")
 async def log_client(request: Request):
@@ -224,68 +238,7 @@ def debug(request: Request):
 
 MAX_QUOTA_BYTES = 100 * 1024 * 1024
 
-@app.post("/delete-account")
-async def delete_account(data: dict, request: Request, db: Session = Depends(get_db)):
-    uid = data.get("uid")
-    if not uid:
-        raise HTTPException(status_code=400, detail="Missing UID")
-
-    ip = request.client.host
-    user = get_user_by_uid(uid)
-    if not user or user.ip != ip:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-
-    # Delete user quota and user using ORM
-    quota = db.get(UserQuota, uid)
-    if quota:
-        db.delete(quota)
-    user_obj = db.get(User, user.email)
-    if user_obj:
-        db.delete(user_obj)
-    db.commit()
-
-    import shutil
-    user_dir = os.path.join('data', user.username)
-    real_user_dir = os.path.realpath(user_dir)
-    if not real_user_dir.startswith(os.path.realpath('data')):
-        raise HTTPException(status_code=400, detail="Invalid user directory")
-    if os.path.exists(real_user_dir):
-        shutil.rmtree(real_user_dir, ignore_errors=True)
-
-    return {"message": "User deleted"}
-
-    from fastapi.concurrency import run_in_threadpool
-    # from detect_content_type_whisper_ollama import detect_content_type_whisper_ollama  # Broken import: module not found
-    content_type = None
-    if content_type in ["music", "singing"]:
-        os.remove(raw_path)
-        log_violation("UPLOAD", ip, uid, f"Rejected content: {content_type}")
-        return JSONResponse(status_code=403, content={"error": f"{content_type.capitalize()} uploads are not allowed."})
-
-    try:
-        subprocess.run([
-            "ffmpeg", "-y", "-i", raw_path,
-            "-ac", "1", "-ar", "48000",
-            "-c:a", "libopus", "-b:a", "60k",
-            final_path
-        ], check=True)
-    except subprocess.CalledProcessError as e:
-        os.remove(raw_path)
-        log_violation("FFMPEG", ip, uid, f"ffmpeg failed: {e}")
-        raise HTTPException(status_code=500, detail="Encoding failed")
-    os.remove(raw_path)
-
-    try:
-        actual_bytes = int(subprocess.check_output(["du", "-sb", user_dir]).split()[0])
-        q = db.get(UserQuota, uid)
-        if q:
-            q.storage_bytes = actual_bytes
-            db.add(q)
-            db.commit()
-    except Exception as e:
-        log_violation("QUOTA", ip, uid, f"Quota update failed: {e}")
-
-    return {}
+# Delete account endpoint has been moved to account_router.py
 
 @app.delete("/uploads/{uid}/{filename}")
 def delete_file(uid: str, filename: str, request: Request, db: Session = Depends(get_db)):
@@ -333,24 +286,51 @@ def confirm_user(uid: str, request: Request):
 
 @app.get("/me/{uid}")
 def get_me(uid: str, request: Request, db: Session = Depends(get_db)):
-    ip = request.client.host
-    user = get_user_by_uid(uid)
-    if not user or user.ip != ip:
-        raise HTTPException(status_code=403, detail="Unauthorized access")
+    print(f"[DEBUG] GET /me/{uid} - Client IP: {request.client.host}")
+    try:
+        # Get user info
+        user = get_user_by_uid(uid)
+        if not user:
+            print(f"[ERROR] User with UID {uid} not found")
+            raise HTTPException(status_code=403, detail="User not found")
+            
+        if user.ip != request.client.host:
+            print(f"[ERROR] IP mismatch for UID {uid}: {request.client.host} != {user.ip}")
+            raise HTTPException(status_code=403, detail="IP address mismatch")
 
-    user_dir = os.path.join('data', user.username)
-    files = []
-    if os.path.exists(user_dir):
-        for f in os.listdir(user_dir):
-            path = os.path.join(user_dir, f)
-            if os.path.isfile(path):
-                files.append({"name": f, "size": os.path.getsize(path)})
+        # Get all upload logs for this user
+        upload_logs = db.exec(
+            select(UploadLog)
+            .where(UploadLog.uid == uid)
+            .order_by(UploadLog.created_at.desc())
+        ).all()
+        print(f"[DEBUG] Found {len(upload_logs)} upload logs for UID {uid}")
+        
+        # Build file list from database records
+        files = []
+        for log in upload_logs:
+            if log.filename and log.processed_filename:
+                # The actual filename on disk might have the log ID prepended
+                stored_filename = f"{log.id}_{log.processed_filename}"
+                files.append({
+                    "name": stored_filename,
+                    "original_name": log.filename,
+                    "size": log.size_bytes
+                })
+                print(f"[DEBUG] Added file from DB: {log.filename} (stored as {stored_filename}, {log.size_bytes} bytes)")
+        
+        # Get quota info
+        q = db.get(UserQuota, uid)
+        quota_mb = round(q.storage_bytes / (1024 * 1024), 2) if q else 0
+        print(f"[DEBUG] Quota for UID {uid}: {quota_mb} MB")
 
-    q = db.get(UserQuota, uid)
-    quota_mb = round(q.storage_bytes / (1024 * 1024), 2) if q else 0
-
-    return {
-
-        "files": files,
-        "quota": quota_mb
-    }
+        response_data = {
+            "files": files,
+            "quota": quota_mb
+        }
+        print(f"[DEBUG] Returning {len(files)} files and quota info")
+        return response_data
+        
+    except Exception as e:
+        print(f"[ERROR] Error in /me/{uid} endpoint: {str(e)}", exc_info=True)
+        raise

@@ -11,9 +11,40 @@ document.addEventListener("DOMContentLoaded", () => {
   const Router = {
     sections: Array.from(document.querySelectorAll("main > section")),
     showOnly(id) {
+      // Define which sections are part of the 'Your Stream' section
+      const yourStreamSections = ['me-page', 'register-page', 'quota-meter'];
+      const isYourStreamSection = yourStreamSections.includes(id);
+      
+      // Handle the quota meter visibility - only show with 'me-page'
+      const quotaMeter = document.getElementById('quota-meter');
+      if (quotaMeter) {
+        quotaMeter.hidden = id !== 'me-page';
+        quotaMeter.tabIndex = id === 'me-page' ? 0 : -1;
+      }
+      
+      // Check if user is logged in
+      const isLoggedIn = !!getCookie('uid');
+      
+      // Handle all sections
       this.sections.forEach(sec => {
-        sec.hidden = sec.id !== id;
-        sec.tabIndex = -1;
+        // Skip quota meter as it's already handled
+        if (sec.id === 'quota-meter') return;
+        
+        // Special handling for register page - only show to guests
+        if (sec.id === 'register-page') {
+          sec.hidden = isLoggedIn || id !== 'register-page';
+          sec.tabIndex = (!isLoggedIn && id === 'register-page') ? 0 : -1;
+          return;
+        }
+        
+        // Show the section if it matches the target ID
+        // OR if it's a 'Your Stream' section and we're in a 'Your Stream' context
+        const isSectionInYourStream = yourStreamSections.includes(sec.id);
+        const shouldShow = (sec.id === id) || 
+                         (isYourStreamSection && isSectionInYourStream);
+        
+        sec.hidden = !shouldShow;
+        sec.tabIndex = shouldShow ? 0 : -1;
       });
       // Show user-upload-area only when me-page is shown and user is logged in
       const userUpload = document.getElementById("user-upload-area");

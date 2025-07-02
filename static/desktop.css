@@ -1,0 +1,97 @@
+/* Desktop-specific styles for screens 960px and wider */
+@media (min-width: 960px) {
+  html {
+    background-color: #111 !important;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        rgba(188, 183, 107, 0.1) 0,  /* Olive color */
+        rgba(188, 183, 107, 0.1) 1px,
+        transparent 1px,
+        transparent 20px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgba(188, 183, 107, 0.1) 0,  /* Olive color */
+        rgba(188, 183, 107, 0.1) 1px,
+        transparent 1px,
+        transparent 20px
+      ) !important;
+    background-size: 40px 40px !important;
+    background-repeat: repeat !important;
+    background-attachment: fixed !important;
+    min-height: 100% !important;
+  }
+  
+  body {
+    background: transparent !important;
+    min-height: 100vh !important;
+  }
+  /* Section styles are now handled in style.css */
+  
+  nav.dashboard-nav a {
+    padding: 5px;
+    margin: 0 0.5em;
+    border-radius: 3px;
+  }
+  
+  /* Reset mobile-specific styles for desktop */
+  .dashboard-nav {
+    padding: 0.5em;
+    max-width: none;
+    justify-content: center;
+  }
+  
+  .dashboard-nav a {
+    min-width: auto;
+    font-size: 1rem;
+  }
+
+  /* Global article styles */
+  main > section > article,
+  #stream-page > article {
+    max-width: 600px;
+    margin: 0 auto 2em auto;
+    padding: 2em;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  
+  /* Stream player styles */
+  #stream-page #stream-list > li {
+    list-style: none;
+    margin-bottom: 1.5em;
+  }
+  
+  #stream-page #stream-list > li .stream-player {
+    padding: 1.5em;
+    background: #1e1e1e;
+    border: none;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  
+  /* Hover states - only apply to direct article children of sections */
+  main > section > article:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(45deg, rgba(255, 102, 0, 0.05), rgba(255, 102, 0, 0.02));
+    border: 1px solid #ff6600;
+  }
+  
+  /* Stream list desktop styles */
+  #stream-list {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+  
+  /* User upload area desktop styles */
+  #user-upload-area {
+    max-width: 600px !important;
+    width: 100% !important;
+    margin: 1.5rem auto !important;
+    box-sizing: border-box !important;
+  }
+}
