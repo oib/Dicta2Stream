@@ -1,0 +1,69 @@
+/* 
+ * Color System Documentation
+ * 
+ * This file documents the color variables used throughout the application.
+ * All colors should be defined as CSS variables in :root, and these variables
+ * should be used consistently across all CSS and JavaScript files.
+ */
+
+:root {
+  /* Primary Colors */
+  --primary-color: #4a6fa5;    /* Main brand color */
+  --primary-hover: #3a5a8c;   /* Darker shade for hover states */
+  
+  /* Text Colors */
+  --text-color: #f0f0f0;      /* Main text color */
+  --text-muted: #888;         /* Secondary text, less important info */
+  --text-light: #999;         /* Lighter text for disabled states */
+  --text-lighter: #bbb;       /* Very light text, e.g., placeholders */
+  
+  /* Background Colors */
+  --background: #1a1a1a;      /* Main background color */
+  --surface: #2a2a2a;         /* Surface color for cards, panels, etc. */
+  --code-bg: #222;            /* Background for code blocks */
+  
+  /* Border Colors */
+  --border: #444;             /* Default border color */
+  --border-light: #555;       /* Lighter border */
+  --border-lighter: #666;     /* Even lighter border */
+  
+  /* Status Colors */
+  --success: #2e8b57;         /* Success messages, confirmations */
+  --warning: #ff6600;         /* Warnings, important notices */
+  --error: #ff4444;           /* Error messages, destructive actions */
+  --error-hover: #ff6666;     /* Hover state for error buttons */
+  --info: #1e90ff;            /* Informational messages, links */
+  --link-hover: #74c0fc;      /* Hover state for links */
+  
+  /* Transitions */
+  --transition: all 0.2s ease; /* Default transition */
+}
+
+/* 
+ * Usage Examples:
+ * 
+ * .button {
+ *   background-color: var(--primary-color);
+ *   color: var(--text-color);
+ *   border: 1px solid var(--border);
+ *   transition: var(--transition);
+ * }
+ * 
+ * .button:hover {
+ *   background-color: var(--primary-hover);
+ * }
+ * 
+ * .error-message {
+ *   color: var(--error);
+ *   background-color: color-mix(in srgb, var(--error) 10%, transparent);
+ *   border-left: 3px solid var(--error);
+ * }
+ */
+
+/* 
+ * Accessibility Notes:
+ * - Ensure text has sufficient contrast with its background
+ * - Use semantic color names that describe the purpose, not the color
+ * - Test with color blindness simulators for accessibility
+ * - Maintain consistent color usage throughout the application
+ */

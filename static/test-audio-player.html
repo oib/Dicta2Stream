@@ -5,25 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audio Player Test</title>
   <style>
+    :root {
+      --success: #2e8b57;
+      --error: #ff4444;
+      --border: #444;
+      --text-color: #f0f0f0;
+      --surface: #2a2a2a;
+    }
+    
     body {
       font-family: Arial, sans-serif;
       max-width: 800px;
       margin: 0 auto;
       padding: 20px;
       line-height: 1.6;
+      background: #1a1a1a;
+      color: var(--text-color);
     }
     .test-case {
       margin-bottom: 20px;
       padding: 15px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border);
       border-radius: 5px;
+      background: var(--surface);
     }
-    .success { color: green; }
-    .error { color: red; }
+    .success { color: var(--success); }
+    .error { color: var(--error); }
     button {
       padding: 8px 16px;
       margin: 5px;
       cursor: pointer;
+      background: #4a6fa5;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: #3a5a8c;
     }
     #log {
       margin-top: 20px;

@@ -1,0 +1,268 @@
+/* File upload and list styles */
+#user-upload-area {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  margin: 1rem 0;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  background-color: var(--surface);
+}
+
+#user-upload-area:hover,
+#user-upload-area.highlight {
+  border-color: var(--primary);
+  background-color: rgba(var(--primary-rgb), 0.05);
+}
+
+#user-upload-area p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+#file-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+#file-list {
+  margin: 1.5rem 0;
+  padding: 0;
+}
+
+#file-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  background-color: var(--surface);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease-in-out;
+}
+
+#file-list li:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+#file-list li.no-files,
+#file-list li.loading-message,
+#file-list li.error-message {
+  display: block;
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2rem 1.5rem;
+  background-color: transparent;
+  border: 2px dashed var(--border);
+  margin: 1rem 0;
+  border-radius: 8px;
+  font-size: 1.1em;
+}
+
+#file-list li.loading-message {
+  color: var(--primary);
+  font-style: italic;
+}
+
+#file-list li.error-message {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+#file-list li.error-message .login-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: bold;
+  margin-left: 0.3em;
+}
+
+#file-list li.error-message .login-link:hover {
+  text-decoration: underline;
+}
+
+#file-list li.no-files:hover {
+  background-color: rgba(var(--primary-rgb), 0.05);
+  border-color: var(--primary);
+  transform: none;
+  box-shadow: none;
+}
+
+.file-item {
+  width: 100%;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0; /* Allows text truncation */
+}
+
+.file-icon {
+  margin-right: 0.75rem;
+  font-size: 1.2em;
+  flex-shrink: 0;
+}
+
+.file-name {
+  color: var(--primary);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 0.5rem;
+}
+
+.file-name:hover {
+  text-decoration: underline;
+}
+
+.file-size {
+  color: var(--text-muted);
+  font-size: 0.85em;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.file-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: 1rem;
+  flex-shrink: 0;
+}
+
+.download-button,
+.delete-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.download-button {
+  background-color: var(--primary);
+  color: white;
+}
+
+.download-button:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.delete-button {
+  background-color: transparent;
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.delete-button:hover {
+  background-color: rgba(var(--error-rgb), 0.1);
+}
+
+.button-icon {
+  font-size: 1em;
+}
+
+.button-text {
+  display: none;
+}
+
+/* Show text on larger screens */
+@media (min-width: 640px) {
+  .button-text {
+    display: inline;
+  }
+  
+  .download-button,
+  .delete-button {
+    padding: 0.4rem 1rem;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  #file-list li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .file-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+  
+  .file-name {
+    max-width: 100%;
+  }
+}
+
+#file-list li a {
+  color: var(--primary);
+  text-decoration: none;
+  flex-grow: 1;
+  margin-right: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#file-list li a:hover {
+  text-decoration: underline;
+}
+
+.file-size {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  margin-left: 0.5rem;
+}
+
+.delete-file {
+  background: none;
+  border: none;
+  color: var(--error);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.delete-file:hover {
+  background-color: rgba(var(--error-rgb), 0.1);
+}
+
+/* Loading state */
+#file-list.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  #user-upload-area {
+    padding: 1.5rem 1rem;
+  }
+  
+  #file-list li {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .file-size {
+    display: block;
+    margin-left: 0;
+    margin-top: 0.25rem;
+  }
+}

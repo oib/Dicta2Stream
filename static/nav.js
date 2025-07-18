@@ -8,62 +8,267 @@ function getCookie(name) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Check authentication status
+  const isLoggedIn = !!getCookie('uid');
+  
+  // Update body class for CSS-based visibility
+  document.body.classList.toggle('logged-in', isLoggedIn);
+  
+  // Get all main content sections
+  const mainSections = Array.from(document.querySelectorAll('main > section'));
+  
+  // Show/hide sections with smooth transitions
+  const showSection = (sectionId) => {
+    // Update body class to indicate current page
+    document.body.className = '';
+    if (sectionId) {
+      document.body.classList.add(`page-${sectionId}`);
+    } else {
+      document.body.classList.add('page-welcome');
+    }
+    
+    // Update active state of navigation links
+    document.querySelectorAll('.dashboard-nav a').forEach(link => {
+      link.classList.remove('active');
+      if ((!sectionId && link.getAttribute('href') === '#welcome-page') || 
+          (sectionId && link.getAttribute('href') === `#${sectionId}`)) {
+        link.classList.add('active');
+      }
+    });
+    
+    mainSections.forEach(section => {
+      // Skip navigation sections
+      if (section.id === 'guest-dashboard' || section.id === 'user-dashboard') {
+        return;
+      }
+      
+      const isTarget = section.id === sectionId;
+      const isLegalPage = ['terms-page', 'privacy-page', 'imprint-page'].includes(sectionId);
+      const isWelcomePage = !sectionId || sectionId === 'welcome-page';
+      
+      if (isTarget || (isLegalPage && section.id === sectionId)) {
+        // Show the target section or legal page
+        section.classList.add('active');
+        section.hidden = false;
+        
+        // Focus the section for accessibility with a small delay
+        // Only focus if the section is focusable and in the viewport
+        const focusSection = () => {
+          try {
+            if (section && typeof section.focus === 'function' && 
+                section.offsetParent !== null && // Check if element is visible
+                section.getBoundingClientRect().top < window.innerHeight &&
+                section.getBoundingClientRect().bottom > 0) {
+              section.focus({ preventScroll: true });
+            }
+          } catch (e) {
+            // Silently fail if focusing isn't possible
+            if (window.DEBUG_NAV || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+              console.debug('Could not focus section:', e);
+            }
+          }
+        };
+        
+        // Use requestAnimationFrame for better performance
+        requestAnimationFrame(() => {
+          // Only set the timeout in debug mode or local development
+          if (window.DEBUG_NAV || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+            setTimeout(focusSection, 50);
+          } else {
+            focusSection();
+          }
+        });
+      } else if (isWelcomePage && section.id === 'welcome-page') {
+        // Special handling for welcome page
+        section.classList.add('active');
+        section.hidden = false;
+      } else {
+        // Hide other sections
+        section.classList.remove('active');
+        section.hidden = true;
+      }
+    });
+    
+    // Update URL hash without page scroll
+    if (sectionId && !['terms-page', 'privacy-page', 'imprint-page'].includes(sectionId)) {
+      if (sectionId === 'welcome-page') {
+        history.replaceState(null, '', window.location.pathname);
+      } else {
+        history.replaceState(null, '', `#${sectionId}`);
+      }
+    }
+  };
+  
+  // Handle initial page load
+  const getValidSection = (sectionId) => {
+    const protectedSections = ['me-page', 'register-page'];
+    
+    // If not logged in and trying to access protected section
+    if (!isLoggedIn && protectedSections.includes(sectionId)) {
+      return 'welcome-page';
+    }
+    
+    // If section doesn't exist, default to welcome page
+    if (!document.getElementById(sectionId)) {
+      return 'welcome-page';
+    }
+    
+    return sectionId;
+  };
+  
+  // Process initial page load
+  const initialPage = window.location.hash.substring(1) || 'welcome-page';
+  const validSection = getValidSection(initialPage);
+  
+  // Update URL if needed
+  if (validSection !== initialPage) {
+    window.location.hash = validSection;
+  }
+  
+  // Show the appropriate section
+  showSection(validSection);
+
   const Router = {
     sections: Array.from(document.querySelectorAll("main > section")),
+    
     showOnly(id) {
-      // Define which sections are part of the 'Your Stream' section
-      const yourStreamSections = ['me-page', 'register-page', 'quota-meter'];
-      const isYourStreamSection = yourStreamSections.includes(id);
+      // Validate the section ID
+      const validId = getValidSection(id);
+      
+      // Update URL if needed
+      if (validId !== id) {
+        window.location.hash = validId;
+        return;
+      }
+      
+      // Show the requested section
+      showSection(validId);
       
       // Handle the quota meter visibility - only show with 'me-page'
       const quotaMeter = document.getElementById('quota-meter');
       if (quotaMeter) {
-        quotaMeter.hidden = id !== 'me-page';
-        quotaMeter.tabIndex = id === 'me-page' ? 0 : -1;
+        quotaMeter.hidden = validId !== 'me-page';
+        quotaMeter.tabIndex = validId === 'me-page' ? 0 : -1;
       }
       
-      // Check if user is logged in
-      const isLoggedIn = !!getCookie('uid');
-      
-      // Handle all sections
-      this.sections.forEach(sec => {
-        // Skip quota meter as it's already handled
-        if (sec.id === 'quota-meter') return;
-        
-        // Special handling for register page - only show to guests
-        if (sec.id === 'register-page') {
-          sec.hidden = isLoggedIn || id !== 'register-page';
-          sec.tabIndex = (!isLoggedIn && id === 'register-page') ? 0 : -1;
-          return;
-        }
-        
-        // Show the section if it matches the target ID
-        // OR if it's a 'Your Stream' section and we're in a 'Your Stream' context
-        const isSectionInYourStream = yourStreamSections.includes(sec.id);
-        const shouldShow = (sec.id === id) || 
-                         (isYourStreamSection && isSectionInYourStream);
-        
-        sec.hidden = !shouldShow;
-        sec.tabIndex = shouldShow ? 0 : -1;
-      });
-      // Show user-upload-area only when me-page is shown and user is logged in
-      const userUpload = document.getElementById("user-upload-area");
-      if (userUpload) {
-        const uid = getCookie("uid");
-        userUpload.style.display = (id === "me-page" && uid) ? '' : 'none';
-      }
-      localStorage.setItem("last_page", id);
-      const target = document.getElementById(id);
-      if (target) target.focus();
+      // Update navigation active states
+      this.updateActiveNav(validId);
     },
-    init() {
-      initNavLinks();
-      initBackButtons();
-  
-      initStreamLinks();
+    
+    updateActiveNav(activeId) {
+      // Update active states for navigation links
+      document.querySelectorAll('.dashboard-nav a').forEach(link => {
+        const target = link.getAttribute('href').substring(1);
+        if (target === activeId) {
+          link.setAttribute('aria-current', 'page');
+          link.classList.add('active');
+        } else {
+          link.removeAttribute('aria-current');
+          link.classList.remove('active');
+        }
+      });
     }
   };
-  const showOnly = Router.showOnly.bind(Router);
+  
+  // Initialize the router
+  const router = Router;
+  
+  // Handle section visibility based on authentication
+  const updateSectionVisibility = (sectionId) => {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    
+    // Skip navigation sections and quota meter
+    if (['guest-dashboard', 'user-dashboard', 'quota-meter'].includes(sectionId)) {
+      return;
+    }
+    
+    const currentHash = window.location.hash.substring(1);
+    const isLegalPage = ['terms-page', 'privacy-page', 'imprint-page'].includes(sectionId);
+    
+    // Special handling for legal pages - always show when in hash
+    if (isLegalPage) {
+      const isActive = sectionId === currentHash;
+      section.hidden = !isActive;
+      section.tabIndex = isActive ? 0 : -1;
+      if (isActive) section.focus();
+      return;
+    }
+    
+    // Special handling for me-page - only show to authenticated users
+    if (sectionId === 'me-page') {
+      section.hidden = !isLoggedIn || currentHash !== 'me-page';
+      section.tabIndex = (isLoggedIn && currentHash === 'me-page') ? 0 : -1;
+      return;
+    }
+    
+    // Special handling for register page - only show to guests
+    if (sectionId === 'register-page') {
+      section.hidden = isLoggedIn || currentHash !== 'register-page';
+      section.tabIndex = (!isLoggedIn && currentHash === 'register-page') ? 0 : -1;
+      return;
+    }
+    
+    // For other sections, show if they match the current section ID
+    const isActive = sectionId === currentHash;
+    section.hidden = !isActive;
+    section.tabIndex = isActive ? 0 : -1;
+    
+    if (isActive) {
+      section.focus();
+    }
+  };
+  
+  // Initialize the router
+  router.init = function() {
+    // Update visibility for all sections
+    this.sections.forEach(section => {
+      updateSectionVisibility(section.id);
+    });
+    
+    // Show user-upload-area only when me-page is shown and user is logged in
+    const userUpload = document.getElementById("user-upload-area");
+    if (userUpload) {
+      const uid = getCookie("uid");
+      userUpload.style.display = (window.location.hash === '#me-page' && uid) ? '' : 'none';
+    }
+    
+    // Store the current page
+    localStorage.setItem("last_page", window.location.hash.substring(1));
+    
+    // Initialize navigation
+    initNavLinks();
+    initBackButtons();
+    initStreamLinks();
+    
+    // Ensure proper focus management for accessibility
+    const currentSection = document.querySelector('main > section:not([hidden])');
+    if (currentSection) {
+      currentSection.setAttribute('tabindex', '0');
+      currentSection.focus();
+    }
+  };
+  
+  // Initialize the router
+  router.init();
+  
+  // Handle footer links
+  document.querySelectorAll('.footer-links a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = link.dataset.target;
+      if (target) {
+        // Show the target section without updating URL hash
+        showSection(target);
+      }
+    });
+  });
+  
+  // Export the showOnly function for global access
+  window.showOnly = router.showOnly.bind(router);
+  
+  // Make router available globally for debugging
+  window.appRouter = router;
 
   // Highlight active profile link on browser back/forward navigation
   function highlightActiveProfileLink() {
@@ -80,6 +285,15 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener('popstate', () => {
     const params = new URLSearchParams(window.location.search);
     const profileUid = params.get('profile');
+    const currentPage = window.location.hash.substring(1) || 'welcome-page';
+    
+    // Prevent unauthorized access to me-page
+    if ((currentPage === 'me-page' || profileUid) && !getCookie('uid')) {
+      history.replaceState(null, '', '#welcome-page');
+      showOnly('welcome-page');
+      return;
+    }
+    
     if (profileUid) {
       showOnly('me-page');
       if (typeof window.showProfilePlayerFromUrl === 'function') {
@@ -227,5 +441,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Initialize Router
+  document.addEventListener('visibilitychange', () => {
+    // Re-check authentication when tab becomes visible again
+    if (!document.hidden && window.location.hash === '#me-page' && !getCookie('uid')) {
+      window.location.hash = 'welcome-page';
+      showOnly('welcome-page');
+    }
+  });
+
   Router.init();
 });

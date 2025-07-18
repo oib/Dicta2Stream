@@ -1,0 +1,54 @@
+/* section.css - Centralized visibility control with class-based states */
+
+/* Base section visibility - all sections hidden by default */
+main > section {
+  display: none;
+  position: absolute;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+}
+
+/* Active section styling - only visibility properties */
+main > section.active {
+  display: block;
+  position: relative;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  opacity: 1;
+}
+
+/* Authentication-based visibility classes */
+.guest-only { display: block; }
+.auth-only { 
+  display: none;
+}
+
+/* Show auth-only elements when authenticated */
+body.authenticated .auth-only {
+  display: block;
+}
+
+/* Ensure me-page and its direct children are visible when me-page is active */
+#me-page:not([hidden]) > .auth-only,
+#me-page:not([hidden]) > section,
+#me-page:not([hidden]) > article,
+#me-page:not([hidden]) > div,
+/* Ensure account deletion section is visible when privacy page is active and user is authenticated */
+#privacy-page:not([hidden]) .auth-only,
+#privacy-page:not([hidden]) #account-deletion {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+body.authenticated .guest-only { 
+  display: none;
+}
+
+.always-visible { 
+  display: block !important; 
+}

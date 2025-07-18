@@ -36,7 +36,19 @@ from fastapi.requests import Request as FastAPIRequest
 from fastapi.exception_handlers import RequestValidationError
 from fastapi.exceptions import HTTPException as FastAPIHTTPException
 
-app = FastAPI(debug=debug_mode)
+app = FastAPI(debug=debug_mode, docs_url=None, redoc_url=None, openapi_url=None)
+
+# Override default HTML error handlers to return JSON
+from fastapi.exceptions import RequestValidationError, HTTPException as FastAPIHTTPException
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
 
 # --- CORS Middleware for SSE and API access ---
 from fastapi.middleware.cors import CORSMiddleware
@@ -292,11 +304,16 @@ def get_me(uid: str, request: Request, db: Session = Depends(get_db)):
         user = get_user_by_uid(uid)
         if not user:
             print(f"[ERROR] User with UID {uid} not found")
-            raise HTTPException(status_code=403, detail="User not found")
-            
-        if user.ip != request.client.host:
-            print(f"[ERROR] IP mismatch for UID {uid}: {request.client.host} != {user.ip}")
-            raise HTTPException(status_code=403, detail="IP address mismatch")
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Only enforce IP check in production
+        if not debug_mode:
+            if user.ip != request.client.host:
+                print(f"[WARNING] IP mismatch for UID {uid}: {request.client.host} != {user.ip}")
+                # In production, we might want to be more strict
+                # But for now, we'll just log a warning in development
+                if not debug_mode:
+                    raise HTTPException(status_code=403, detail="IP address mismatch")
 
         # Get all upload logs for this user
         upload_logs = db.exec(
@@ -331,6 +348,13 @@ def get_me(uid: str, request: Request, db: Session = Depends(get_db)):
         print(f"[DEBUG] Returning {len(files)} files and quota info")
         return response_data
         
-    except Exception as e:
-        print(f"[ERROR] Error in /me/{uid} endpoint: {str(e)}", exc_info=True)
+    except HTTPException:
+        # Re-raise HTTP exceptions as they are
         raise
+    except Exception as e:
+        # Log the full traceback for debugging
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[ERROR] Error in /me/{uid} endpoint: {str(e)}\n{error_trace}")
+        # Return a 500 error with a generic message
+        raise HTTPException(status_code=500, detail="Internal server error")

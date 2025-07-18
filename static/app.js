@@ -2,6 +2,7 @@
 
 import { playBeep } from "./sound.js";
 import { showToast } from "./toast.js";
+import { injectNavigation } from "./inject-nav.js";
 
 // Global audio state
 let globalAudio = null;
@@ -30,29 +31,42 @@ function handleMagicLoginRedirect() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('login') === 'success' && params.get('confirmed_uid')) {
     const username = params.get('confirmed_uid');
+    console.log('Magic link login detected for user:', username);
+    
+    // Update authentication state
     localStorage.setItem('uid', username);
     localStorage.setItem('confirmed_uid', username);
     localStorage.setItem('uid_time', Date.now().toString());
     document.cookie = `uid=${encodeURIComponent(username)}; path=/`;
     
-    // Update UI state immediately without reload
-    const guestDashboard = document.getElementById('guest-dashboard');
-    const userDashboard = document.getElementById('user-dashboard');
-    const registerPage = document.getElementById('register-page');
+    // Update UI state
+    document.body.classList.add('authenticated');
+    document.body.classList.remove('guest');
     
-    if (guestDashboard) guestDashboard.style.display = 'none';
-    if (userDashboard) userDashboard.style.display = 'block';
-    if (registerPage) registerPage.style.display = 'none';
+    // Update local storage and cookies
+    localStorage.setItem('isAuthenticated', 'true');
+    document.cookie = `isAuthenticated=true; path=/`;
     
     // Update URL and history without reloading
     window.history.replaceState({}, document.title, window.location.pathname);
     
+    // Update navigation
+    if (typeof injectNavigation === 'function') {
+      console.log('Updating navigation after magic link login');
+      injectNavigation(true);
+    } else {
+      console.warn('injectNavigation function not available after magic link login');
+    }
+    
     // Navigate to user's profile page
     if (window.showOnly) {
+      console.log('Navigating to me-page');
       window.showOnly('me-page');
     } else if (window.location.hash !== '#me') {
       window.location.hash = '#me';
     }
+    
+    // Auth state will be updated by the polling mechanism
   }
 }
 
@@ -298,55 +312,116 @@ function showProfilePlayerFromUrl() {
 }
 
 function initNavigation() {
-  const navLinks = document.querySelectorAll('nav a');
+  // Get all navigation links
+  const navLinks = document.querySelectorAll('nav a, .dashboard-nav a');
+  
+  // Handle navigation link clicks
+  const handleNavClick = (e) => {
+    const link = e.target.closest('a');
+    if (!link) return;
+    
+    // Check both href and data-target attributes
+    const target = link.getAttribute('data-target');
+    const href = link.getAttribute('href');
+    
+    // Let the browser handle external links
+    if (href && (href.startsWith('http') || href.startsWith('mailto:'))) {
+      return;
+    }
+    
+    // If no data-target and no hash in href, let browser handle it
+    if (!target && (!href || !href.startsWith('#'))) {
+      return;
+    }
+    
+    // Prefer data-target over href
+    let sectionId = target || (href ? href.substring(1) : '');
+    
+    // Special case for the 'me' route which maps to 'me-page'
+    if (sectionId === 'me') {
+      sectionId = 'me-page';
+    }
+    
+    // Skip if no valid section ID
+    if (!sectionId) {
+      console.warn('No valid section ID in navigation link:', link);
+      return;
+    }
+    
+    // Let the router handle the navigation
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Update body class to reflect the current section
+    document.body.className = ''; // Clear existing classes
+    document.body.classList.add(`page-${sectionId.replace('-page', '')}`);
+    
+    // Update URL hash - the router will handle the rest
+    window.location.hash = sectionId;
+    
+    // Close mobile menu if open
+    const burger = document.getElementById('burger-toggle');
+    if (burger && burger.checked) burger.checked = false;
+  };
+  
+  // Add click event listeners to all navigation links
   navLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
-      const href = link.getAttribute('href');
-      
-      // Skip if href is empty or doesn't start with '#'
-      if (!href || !href.startsWith('#')) {
-        return; // Let the browser handle the link normally
-      }
-      
-      const sectionId = href.substring(1); // Remove the '#'
-      
-      // Skip if sectionId is empty after removing '#'
-      if (!sectionId) {
-        console.warn('Empty section ID in navigation link:', link);
-        return;
-      }
-      
-      const section = document.getElementById(sectionId);
-      if (section) {
-        e.preventDefault();
-        
-        // Hide all sections first
-        document.querySelectorAll('main > section').forEach(sec => {
-          sec.hidden = sec.id !== sectionId;
-        });
-        
-        // Special handling for me-page
-        if (sectionId === 'me-page') {
-          const registerPage = document.getElementById('register-page');
-          if (registerPage) registerPage.hidden = true;
-          
-          // Show the upload box in me-page
-          const uploadBox = document.querySelector('#me-page #user-upload-area');
-          if (uploadBox) uploadBox.style.display = 'block';
-        } else if (sectionId === 'register-page') {
-          // Ensure me-page is hidden when register-page is shown
-          const mePage = document.getElementById('me-page');
-          if (mePage) mePage.hidden = true;
-        }
-        
-        section.scrollIntoView({ behavior: "smooth" });
-        
-        // Close mobile menu if open
-        const burger = document.getElementById('burger-toggle');
-        if (burger && burger.checked) burger.checked = false;
-      }
-    });
+    link.addEventListener('click', handleNavClick);
   });
+  
+  // Handle initial page load and hash changes
+  const handleHashChange = () => {
+    let hash = window.location.hash.substring(1);
+    
+    // Map URL hashes to section IDs if they don't match exactly
+    const sectionMap = {
+      'welcome': 'welcome-page',
+      'streams': 'stream-page',
+      'account': 'register-page',
+      'login': 'login-page',
+      'me': 'me-page'
+    };
+    
+    // Use mapped section ID or the hash as is
+    const sectionId = sectionMap[hash] || hash || 'welcome-page';
+    const targetSection = document.getElementById(sectionId);
+    
+    if (targetSection) {
+      // Hide all sections
+      document.querySelectorAll('main > section').forEach(section => {
+        section.hidden = section.id !== sectionId;
+      });
+      
+      // Show target section
+      targetSection.hidden = false;
+      targetSection.scrollIntoView({ behavior: 'smooth' });
+      
+      // Update active state of navigation links
+      navLinks.forEach(link => {
+        const linkHref = link.getAttribute('href');
+        // Match both the exact hash and the mapped section ID
+        link.classList.toggle('active', 
+          linkHref === `#${hash}` || 
+          linkHref === `#${sectionId}` ||
+          link.getAttribute('data-target') === sectionId ||
+          link.getAttribute('data-target') === hash
+        );
+      });
+      
+      // Special handling for streams page
+      if (sectionId === 'stream-page' && typeof window.maybeLoadStreamsOnShow === 'function') {
+        window.maybeLoadStreamsOnShow();
+      }
+    } else {
+      console.warn(`Section with ID '${sectionId}' not found`);
+    }
+  };
+  
+  // Listen for hash changes
+  window.addEventListener('hashchange', handleHashChange);
+  
+  // Handle initial page load
+  handleHashChange();
 }
 
 function initProfilePlayer() {
@@ -354,13 +429,343 @@ function initProfilePlayer() {
   showProfilePlayerFromUrl();
 }
 
+// Track previous authentication state
+let wasAuthenticated = null;
+// Debug flag - set to false to disable auth state change logs
+const DEBUG_AUTH_STATE = false;
+
+// Track all intervals and timeouts
+const activeIntervals = new Map();
+const activeTimeouts = new Map();
+
+// Store original timer functions
+const originalSetInterval = window.setInterval;
+const originalClearInterval = window.clearInterval;
+const originalSetTimeout = window.setTimeout;
+const originalClearTimeout = window.clearTimeout;
+
+// Override setInterval to track all intervals
+window.setInterval = (callback, delay, ...args) => {
+  const id = originalSetInterval((...args) => {
+    trackFunctionCall('setInterval callback', { id, delay, callback: callback.toString() });
+    return callback(...args);
+  }, delay, ...args);
+  
+  activeIntervals.set(id, {
+    id,
+    delay,
+    callback: callback.toString(),
+    createdAt: Date.now(),
+    stack: new Error().stack
+  });
+  
+  if (DEBUG_AUTH_STATE) {
+    console.log(`[Interval ${id}] Created with delay ${delay}ms`, {
+      id,
+      delay,
+      callback: callback.toString(),
+      stack: new Error().stack
+    });
+  }
+  
+  return id;
+};
+
+// Override clearInterval to track interval cleanup
+window.clearInterval = (id) => {
+  if (activeIntervals.has(id)) {
+    activeIntervals.delete(id);
+    if (DEBUG_AUTH_STATE) {
+      console.log(`[Interval ${id}] Cleared`);
+    }
+  } else if (DEBUG_AUTH_STATE) {
+    console.log(`[Interval ${id}] Cleared (not tracked)`);
+  }
+  originalClearInterval(id);
+};
+
+// Override setTimeout to track timeouts (debug logging disabled)
+window.setTimeout = (callback, delay, ...args) => {
+  const id = originalSetTimeout(callback, delay, ...args);
+  // Store minimal info without logging
+  activeTimeouts.set(id, { 
+    id, 
+    delay, 
+    callback: callback.toString(), 
+    createdAt: Date.now() 
+  });
+  return id;
+};
+
+// Override clearTimeout to track timeout cleanup (debug logging disabled)
+window.clearTimeout = (id) => {
+  if (activeTimeouts.has(id)) {
+    activeTimeouts.delete(id);
+  }
+  originalClearTimeout(id);
+};
+
+// Track auth check calls
+let lastAuthCheckTime = 0;
+let authCheckCounter = 0;
+const AUTH_CHECK_DEBOUNCE = 1000; // 1 second
+
+// Override console.log to capture all logs
+const originalConsoleLog = console.log;
+const originalConsoleGroup = console.group;
+const originalConsoleGroupEnd = console.groupEnd;
+
+// Track all console logs
+const consoleLogs = [];
+const MAX_LOGS = 100;
+
+console.log = function(...args) {
+  // Store the log
+  consoleLogs.push({
+    type: 'log',
+    timestamp: new Date().toISOString(),
+    args: [...args],
+    stack: new Error().stack
+  });
+  
+  // Keep only the most recent logs
+  while (consoleLogs.length > MAX_LOGS) {
+    consoleLogs.shift();
+  }
+  
+  // Filter out the auth state check messages
+  if (args[0] && typeof args[0] === 'string' && args[0].includes('Auth State Check')) {
+    return;
+  }
+  
+  originalConsoleLog.apply(console, args);
+};
+
+// Track console groups
+console.group = function(...args) {
+  consoleLogs.push({ type: 'group', timestamp: new Date().toISOString(), args });
+  originalConsoleGroup.apply(console, args);
+};
+
+console.groupEnd = function() {
+  consoleLogs.push({ type: 'groupEnd', timestamp: new Date().toISOString() });
+  originalConsoleGroupEnd.apply(console);
+};
+
+// Track all function calls that might trigger auth checks
+const trackedFunctions = ['checkAuthState', 'setInterval', 'setTimeout', 'addEventListener', 'removeEventListener'];
+const functionCalls = [];
+const MAX_FUNCTION_CALLS = 100;
+
+
+
+// Function to format stack trace for better readability
+function formatStack(stack) {
+  if (!stack) return 'No stack trace';
+  // Remove the first line (the error message) and limit to 5 frames
+  const frames = stack.split('\n').slice(1).slice(0, 5);
+  return frames.join('\n');
+}
+
+// Function to dump debug info
+window.dumpDebugInfo = () => {
+  console.group('Debug Info');
+  
+  // Active Intervals
+  console.group('Active Intervals');
+  if (activeIntervals.size === 0) {
+    console.log('No active intervals');
+  } else {
+    activeIntervals.forEach((info, id) => {
+      console.group(`Interval ${id} (${info.delay}ms)`);
+      console.log('Created at:', new Date(info.createdAt).toISOString());
+      console.log('Callback:', info.callback.split('\n')[0]); // First line of callback
+      console.log('Stack trace:');
+      console.log(formatStack(info.stack));
+      console.groupEnd();
+    });
+  }
+  console.groupEnd();
+  
+  // Active Timeouts
+  console.group('Active Timeouts');
+  if (activeTimeouts.size === 0) {
+    console.log('No active timeouts');
+  } else {
+    activeTimeouts.forEach((info, id) => {
+      console.group(`Timeout ${id} (${info.delay}ms)`);
+      console.log('Created at:', new Date(info.createdAt).toISOString());
+      console.log('Callback:', info.callback.split('\n')[0]); // First line of callback
+      console.log('Stack trace:');
+      console.log(formatStack(info.stack));
+      console.groupEnd();
+    });
+  }
+  console.groupEnd();
+  
+  // Document state
+  console.group('Document State');
+  console.log('Visibility:', document.visibilityState);
+  console.log('Has Focus:', document.hasFocus());
+  console.log('URL:', window.location.href);
+  console.groupEnd();
+  
+  // Recent logs
+  console.group('Recent Logs (10 most recent)');
+  if (consoleLogs.length === 0) {
+    console.log('No logs recorded');
+  } else {
+    consoleLogs.slice(-10).forEach((log, i) => {
+      console.group(`Log ${i + 1} (${log.timestamp})`);
+      console.log(...log.args);
+      if (log.stack) {
+        console.log('Stack trace:');
+        console.log(formatStack(log.stack));
+      }
+      console.groupEnd();
+    });
+  }
+  console.groupEnd();
+  
+  // Auth state
+  console.group('Auth State');
+  console.log('Has auth cookie:', document.cookie.includes('sessionid='));
+  console.log('Has UID cookie:', document.cookie.includes('uid='));
+  console.log('Has localStorage auth:', localStorage.getItem('isAuthenticated') === 'true');
+  console.log('Has auth token:', !!localStorage.getItem('auth_token'));
+  console.groupEnd();
+  
+  console.groupEnd(); // End main group
+};
+
+function trackFunctionCall(name, ...args) {
+  const callInfo = {
+    name,
+    time: Date.now(),
+    timestamp: new Date().toISOString(),
+    args: args.map(arg => {
+      try {
+        return JSON.stringify(arg);
+      } catch (e) {
+        return String(arg);
+      }
+    }),
+    stack: new Error().stack
+  };
+  
+  functionCalls.push(callInfo);
+  if (functionCalls.length > MAX_FUNCTION_CALLS) {
+    functionCalls.shift();
+  }
+  
+  if (name === 'checkAuthState') {
+    console.group(`[${functionCalls.length}] Auth check at ${callInfo.timestamp}`);
+    console.log('Call stack:', callInfo.stack);
+    console.log('Recent function calls:', functionCalls.slice(-5));
+    console.groupEnd();
+  }
+}
+
+// Override tracked functions
+trackedFunctions.forEach(fnName => {
+  if (window[fnName]) {
+    const originalFn = window[fnName];
+    window[fnName] = function(...args) {
+      trackFunctionCall(fnName, ...args);
+      return originalFn.apply(this, args);
+    };
+  }
+});
+
+// Check authentication state and update UI
+function checkAuthState() {
+  const now = Date.now();
+  
+  // Throttle the checks
+  if (now - lastAuthCheckTime < AUTH_CHECK_DEBOUNCE) {
+    return;
+  }
+  lastAuthCheckTime = now;
+  
+  // Check various auth indicators
+  const hasAuthCookie = document.cookie.includes('sessionid=');
+  const hasUidCookie = document.cookie.includes('uid=');
+  const hasLocalStorageAuth = localStorage.getItem('isAuthenticated') === 'true';
+  const hasAuthToken = localStorage.getItem('authToken') !== null;
+  
+  const isAuthenticated = hasAuthCookie || hasUidCookie || hasLocalStorageAuth || hasAuthToken;
+  
+  // Only log if debug is enabled or if state has changed
+  if (DEBUG_AUTH_STATE || isAuthenticated !== wasAuthenticated) {
+    console.log('Auth State Check:', {
+      hasAuthCookie,
+      hasUidCookie,
+      hasLocalStorageAuth,
+      hasAuthToken,
+      isAuthenticated,
+      wasAuthenticated
+    });
+  }
+  
+  // Only update if authentication state has changed
+  if (isAuthenticated !== wasAuthenticated) {
+    if (DEBUG_AUTH_STATE) {
+      console.log('Auth state changed, updating navigation...');
+    }
+    
+    // Update UI state
+    if (isAuthenticated) {
+      document.body.classList.add('authenticated');
+      document.body.classList.remove('guest');
+    } else {
+      document.body.classList.remove('authenticated');
+      document.body.classList.add('guest');
+    }
+    
+    // Update navigation
+    if (typeof injectNavigation === 'function') {
+      injectNavigation(isAuthenticated);
+    } else if (DEBUG_AUTH_STATE) {
+      console.warn('injectNavigation function not found');
+    }
+    
+    // Update the tracked state
+    wasAuthenticated = isAuthenticated;
+    
+    // Force reflow to ensure CSS updates
+    void document.body.offsetHeight;
+  }
+  
+  return isAuthenticated;
+}
+
+// Periodically check authentication state
+function setupAuthStatePolling() {
+  // Initial check
+  checkAuthState();
+  
+  // Check every 30 seconds instead of 2 to reduce load
+  setInterval(checkAuthState, 30000);
+  
+  // Also check after certain events that might affect auth state
+  window.addEventListener('storage', checkAuthState);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkAuthState();
+  });
+}
+
+
 // Initialize the application when DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
+  // Set up authentication state monitoring
+  setupAuthStatePolling();
+  
   // Handle magic link redirect if needed
   handleMagicLoginRedirect();
   
   // Initialize components
   initNavigation();
+  
   
   // Initialize profile player after a short delay
   setTimeout(() => {
@@ -453,26 +858,27 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Set up delete account button if it exists
     const deleteAccountBtn = document.getElementById('delete-account');
-    if (deleteAccountBtn) {
-      deleteAccountBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
+    const deleteAccountFromPrivacyBtn = document.getElementById('delete-account-from-privacy');
+    
+    const deleteAccount = async (e) => {
+      if (e) e.preventDefault();
+      
+      if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/delete-account', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
         
-        if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-          return;
-        }
-        
-        try {
-          const response = await fetch('/api/delete-account', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            }
-          });
-          
-          if (response.ok) {
-            // Clear local storage and redirect to home page
-            localStorage.clear();
-            window.location.href = '/';
+        if (response.ok) {
+          // Clear local storage and redirect to home page
+          localStorage.clear();
+          window.location.href = '/';
           } else {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to delete account');
@@ -481,10 +887,46 @@ document.addEventListener("DOMContentLoaded", () => {
           console.error('Error deleting account:', error);
           showToast(`❌ ${error.message || 'Failed to delete account'}`, 'error');
         }
-      });
-    }
+      };
+      
+      // Add event listeners to both delete account buttons
+      if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', deleteAccount);
+      }
+      
+      if (deleteAccountFromPrivacyBtn) {
+        deleteAccountFromPrivacyBtn.addEventListener('click', deleteAccount);
+      }
     
   }, 200); // End of setTimeout
+});
+
+// Logout function
+function logout() {
+  // Clear authentication state
+  document.body.classList.remove('authenticated');
+  localStorage.removeItem('isAuthenticated');
+  localStorage.removeItem('uid');
+  localStorage.removeItem('confirmed_uid');
+  localStorage.removeItem('uid_time');
+  
+  // Clear cookies
+  document.cookie = 'isAuthenticated=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  document.cookie = 'uid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  
+  // Stop any playing audio
+  stopMainAudio();
+  
+  // Redirect to home page
+  window.location.href = '/';
+}
+
+// Add click handler for logout button
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'logout-button' || e.target.closest('#logout-button')) {
+    e.preventDefault();
+    logout();
+  }
 });
 
 // Expose functions for global access

@@ -65,17 +65,26 @@ function loadAndRenderStreams() {
   let streams = [];
   let connectionTimeout = null;
   
-  // Close previous connection and clear any pending timeouts
+  // Clean up previous connection and timeouts
   if (window._streamsSSE) {
-    console.log('[streams-ui] Aborting previous connection');
+    console.group('[streams-ui] Cleaning up previous connection');
+    console.log('Previous connection exists, aborting...');
     if (window._streamsSSE.abort) {
       window._streamsSSE.abort();
+      console.log('Previous connection aborted');
+    } else {
+      console.log('No abort method on previous connection');
     }
     window._streamsSSE = null;
+    console.groupEnd();
   }
+  
   if (connectionTimeout) {
+    console.log('[streams-ui] Clearing previous connection timeout');
     clearTimeout(connectionTimeout);
     connectionTimeout = null;
+  } else {
+    console.log('[streams-ui] No previous connection timeout to clear');
   }
   
   console.log(`[streams-ui] Creating fetch-based SSE connection to ${sseUrl}`);
@@ -87,14 +96,41 @@ function loadAndRenderStreams() {
   // Store the controller for cleanup
   window._streamsSSE = controller;
   
-  // Set a connection timeout
-  connectionTimeout = setTimeout(() => {
+  // Set a connection timeout with debug info
+  const connectionStartTime = Date.now();
+  const connectionTimeoutId = setTimeout(() => {
     if (!gotAny) {
-      console.log('[streams-ui] Connection timeout reached, forcing retry...');
+      // Only log in development (localhost) or if explicitly enabled
+      const isLocalDevelopment = window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1';
+      if (isLocalDevelopment || window.DEBUG_STREAMS) {
+        const duration = Date.now() - connectionStartTime;
+        console.group('[streams-ui] Connection timeout reached');
+        console.log(`Duration: ${duration}ms`);
+        console.log('Current time:', new Date().toISOString());
+        console.log('Streams received:', streams.length);
+        console.log('Active intervals:', window.activeIntervals ? window.activeIntervals.size : 'N/A');
+        console.log('Active timeouts:', window.activeTimeouts ? window.activeTimeouts.size : 'N/A');
+        console.groupEnd();
+      }
+      
+      // Clean up and retry with backoff
       controller.abort();
-      loadAndRenderStreams();
+      
+      // Only retry if we haven't exceeded max retries
+      const retryCount = window.streamRetryCount || 0;
+      if (retryCount < 3) { // Max 3 retries
+        window.streamRetryCount = retryCount + 1;
+        const backoffTime = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
+        setTimeout(loadAndRenderStreams, backoffTime);
+      } else if (process.env.NODE_ENV === 'development' || window.DEBUG_STREAMS) {
+        console.warn('Max retries reached for stream loading');
+      }
     }
-  }, 10000); // 10 second timeout
+  }, 15000); // 15 second timeout (increased from 10s)
+  
+  // Store the timeout ID for cleanup
+  connectionTimeout = connectionTimeoutId;
   
   console.log('[streams-ui] Making fetch request to:', sseUrl);
   
@@ -102,7 +138,7 @@ function loadAndRenderStreams() {
   
   console.log('[streams-ui] Creating fetch request with URL:', sseUrl);
   
-  // Make the fetch request
+  // Make the fetch request with proper error handling
   fetch(sseUrl, {
     method: 'GET',
     headers: {
@@ -112,7 +148,6 @@ function loadAndRenderStreams() {
     },
     credentials: 'same-origin',
     signal: signal,
-    // Add mode and redirect options for better error handling
     mode: 'cors',
     redirect: 'follow'
   })
@@ -200,44 +235,49 @@ function loadAndRenderStreams() {
     return reader.read().then(processStream);
   })
   .catch(error => {
-    console.error('[streams-ui] Fetch request failed:', error);
+    // Only handle the error if it's not an AbortError (from our own abort)
+    if (error.name === 'AbortError') {
+      console.log('[streams-ui] Request was aborted as expected');
+      return;
+    }
+    
+    console.error('[streams-ui] Stream loading failed:', error);
     
     // Log additional error details
     if (error.name === 'TypeError') {
       console.error('[streams-ui] This is likely a network error or CORS issue');
-      if (error.message.includes('fetch')) {
-        console.error('[streams-ui] The fetch request was blocked or failed to reach the server');
-      }
-      if (error.message.includes('CORS')) {
-        console.error('[streams-ui] CORS error detected. Check server CORS configuration');
-      }
     }
     
-    if (error.name === 'AbortError') {
-      console.log('[streams-ui] Request was aborted');
-    } else {
-      console.error('[streams-ui] Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        constructor: error.constructor.name,
-        errorCode: error.code,
-        errorNumber: error.errno,
-        response: error.response
-      });
+    // Show a user-friendly error message
+    const ul = document.getElementById('stream-list');
+    if (ul) {
+      let errorMessage = 'Error loading streams. ';
       
-      // Show a user-friendly error message
-      const ul = document.getElementById('stream-list');
-      if (ul) {
-        ul.innerHTML = `
-          <li class="error">
-            <p>Error loading streams. Please try again later.</p>
-            <p><small>Technical details: ${error.name}: ${error.message}</small></p>
-          </li>
-        `;
+      if (error.message.includes('Failed to fetch')) {
+        errorMessage += 'Unable to connect to the server. Please check your internet connection.';
+      } else if (error.message.includes('CORS')) {
+        errorMessage += 'A server configuration issue occurred. Please try again later.';
+      } else {
+        errorMessage += 'Please try again later.';
       }
       
-      handleSSEError(error);
+      ul.innerHTML = `
+        <li class="error">
+          <p>${errorMessage}</p>
+          <button id="retry-loading" class="retry-button">
+            <span class="retry-icon">↻</span> Try Again
+          </button>
+        </li>
+      `;
+      
+      // Add retry handler
+      const retryButton = document.getElementById('retry-loading');
+      if (retryButton) {
+        retryButton.addEventListener('click', () => {
+          ul.innerHTML = '<li>Loading streams...</li>';
+          loadAndRenderStreams();
+        });
+      }
     }
   });
   
@@ -279,7 +319,7 @@ function loadAndRenderStreams() {
               <div class="audio-controls">
                 <button class="play-pause-btn" data-uid="${escapeHtml(uid)}" aria-label="Play">▶️</button>
               </div>
-              <p class="stream-info" style='color:gray;font-size:90%'>[${sizeMb} MB, ${mtime}]</p>
+              <p class="stream-info" style='color:var(--text-muted);font-size:90%'>[${sizeMb} MB, ${mtime}]</p>
             </article>
           `;
           ul.appendChild(li);
@@ -288,7 +328,7 @@ function loadAndRenderStreams() {
           console.error(`[streams-ui] Error rendering stream ${uid}:`, error);
           const errorLi = document.createElement('li');
           errorLi.textContent = `Error loading stream: ${uid}`;
-          errorLi.style.color = 'red';
+          errorLi.style.color = 'var(--error)';
           ul.appendChild(errorLi);
         }
       });
@@ -352,7 +392,7 @@ export function renderStreamList(streams) {
           const uid = stream.uid || '';
           const sizeKb = stream.size ? (stream.size / 1024).toFixed(1) : '?';
           const mtime = stream.mtime ? new Date(stream.mtime * 1000).toLocaleString() : '';
-          return `<li><a href="/?profile=${encodeURIComponent(uid)}" class="profile-link">▶ ${uid}</a> <span style='color:gray;font-size:90%'>[${sizeKb} KB, ${mtime}]</span></li>`;
+          return `<li><a href="/?profile=${encodeURIComponent(uid)}" class="profile-link">▶ ${uid}</a> <span style='color:var(--text-muted);font-size:90%'>[${sizeKb} KB, ${mtime}]</span></li>`;
         })
         .join('');
     } else {
@@ -704,50 +744,55 @@ function cleanupAudio() {
   }
 }
 
-// Event delegation for play/pause buttons
-document.addEventListener('click', async (e) => {
-  const playPauseBtn = e.target.closest('.play-pause-btn');
-  if (!playPauseBtn) return;
+// Event delegation for play/pause buttons - only handle buttons within the stream list
+const streamList = document.getElementById('stream-list');
+if (streamList) {
+  streamList.addEventListener('click', async (e) => {
+    const playPauseBtn = e.target.closest('.play-pause-btn');
+    // Skip if not a play button or if it's the personal stream's play button
+    if (!playPauseBtn || playPauseBtn.closest('#me-page')) return;
+    
+    // Prevent event from bubbling up to document-level handlers
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    e.preventDefault();
   
-  // Prevent default to avoid any potential form submission or link following
-  e.preventDefault();
-  e.stopPropagation();
-  
-  const uid = playPauseBtn.dataset.uid;
-  if (!uid) {
-    console.error('No UID found for play button');
-    return;
-  }
-  
-  console.log(`[streams-ui] Play/pause clicked for UID: ${uid}, currentUid: ${currentUid}, isPlaying: ${isPlaying}`);
-  
-  // If clicking the currently playing button, toggle pause/play
-  if (currentUid === uid) {
-    if (isPlaying) {
-      console.log('[streams-ui] Pausing current audio');
-      await audioElement.pause();
-      isPlaying = false;
-      updatePlayPauseButton(playPauseBtn, false);
-    } else {
-      console.log('[streams-ui] Resuming current audio');
-      try {
-        await audioElement.play();
-        isPlaying = true;
-        updatePlayPauseButton(playPauseBtn, true);
-      } catch (error) {
-        console.error('[streams-ui] Error resuming audio:', error);
-        // If resume fails, try reloading the audio
-        await loadAndPlayAudio(uid, playPauseBtn);
-      }
+    const uid = playPauseBtn.dataset.uid;
+    if (!uid) {
+      console.error('No UID found for play button');
+      return;
     }
-    return;
-  }
-  
-  // If a different stream is playing, stop it and start the new one
-  console.log(`[streams-ui] Switching to new audio stream: ${uid}`);
-  stopPlayback();
-  await loadAndPlayAudio(uid, playPauseBtn);
-});
+    
+    console.log(`[streams-ui] Play/pause clicked for UID: ${uid}, currentUid: ${currentUid}, isPlaying: ${isPlaying}`);
+    
+    // If clicking the currently playing button, toggle pause/play
+    if (currentUid === uid) {
+      if (isPlaying) {
+        console.log('[streams-ui] Pausing current audio');
+        await audioElement.pause();
+        isPlaying = false;
+        updatePlayPauseButton(playPauseBtn, false);
+      } else {
+        console.log('[streams-ui] Resuming current audio');
+        try {
+          await audioElement.play();
+          isPlaying = true;
+          updatePlayPauseButton(playPauseBtn, true);
+        } catch (error) {
+          console.error('[streams-ui] Error resuming audio:', error);
+          // If resume fails, try reloading the audio
+          await loadAndPlayAudio(uid, playPauseBtn);
+        }
+      }
+      return;
+    }
+    
+    // If a different stream is playing, stop it and start the new one
+    console.log(`[streams-ui] Switching to new audio stream: ${uid}`);
+    stopPlayback();
+    await loadAndPlayAudio(uid, playPauseBtn);
+  });
+}
 
 // Handle audio end event to update button state
 document.addEventListener('play', (e) => {

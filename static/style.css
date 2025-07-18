@@ -1,94 +1,465 @@
-main {
+/* Import component styles */
+@import url('./css/components/file-upload.css');
+
+/* Base Styles */
+:root {
+  --primary-color: #4a6fa5;
+  --primary-hover: #3a5a8c;
+  --text-color: #f0f0f0;
+  --text-muted: #888;
+  --background: #1a1a1a;
+  --surface: #2a2a2a;
+  --border: #444;
+  --border-light: #555;
+  --border-lighter: #666;
+  --text-light: #999;
+  --text-lighter: #bbb;
+  --error: #ff4444;
+  --error-hover: #ff6666;
+  --success: #2e8b57;
+  --warning: #ff6600;
+  --info: #1e90ff;
+  --code-bg: #222;
+  --link-hover: #74c0fc;
+  --transition: all 0.2s ease;
+}
+
+/* Reset and Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--background);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  margin-bottom: 1rem;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+h1 { 
+  font-size: 2.5rem; 
+  font-weight: 700;
+}
+
+/* Base h2 styles - applied to all h2 elements */
+h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 1.5rem auto; /* Center with auto margins */
+  color: var(--text-color);
+  font-family: inherit;
+  text-align: center; /* Center text by default */
+  display: block;
+  width: 100%;
+  max-width: 800px; /* Optional: Limit width for better readability */
+}
+
+/* Utility classes for h2 variations */
+h2.section-header {
+  color: var(--text-light);
+  padding: 1rem 1.5rem;
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+h2.guest-login {
+  font-size: 1.1em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  background: var(--success);
+  color: var(--text-light);
+  padding: 0.4em 1em;
+  border-radius: 5px;
+  text-decoration: none;
+  margin: 0.5em 0;
+  transition: background 0.2s ease;
+}
+
+h2.guest-login:hover {
+  background: #256b45;
+}
+h3 { 
+  font-size: 1.75rem; 
+  font-weight: 500;
+  text-align: center;
+  width: 100%;
+  margin: 0.5rem 0 1.5rem;
+}
+h4 { font-size: 1.5rem; }
+h5 { font-size: 1.25rem; }
+h6 { font-size: 1rem; }
+
+p {
+  margin-bottom: 1rem;
+}
+
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+a:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+
+/* Layout */
+body {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center; /* centers children horizontally */
+  margin: 0;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 /* Global section styles */
-main > section {
+section {
   width: 100%;
   max-width: 100%;
-  margin: 0 0 1.5rem 0;
-  padding: 0; /* Remove padding from section, will be handled by inner elements */
-  box-sizing: border-box;
-  background: var(--crt-screen, #1a1a1a);
-  border-radius: 8px;
-  overflow: hidden; /* Ensures border-radius clips child elements */
+  margin-bottom: 1.5rem;
+  background: var(--surface);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Ensure consistent background for all sections */
+/* Page containers */
 #welcome-page,
 #register-page,
 #stream-page,
 #me-page,
 #terms-page,
 #privacy-page,
+#imprint-page,
+/* Legal pages container */
+#terms-page,
+#privacy-page,
 #imprint-page {
-  background: var(--crt-screen, #1a1a1a);
-}
-
-/* Style articles within sections */
-section > article {
-  background: transparent;
-  padding: 0;
-  margin: 0 auto;
-  box-shadow: none;
-  color: #f0f0f0;
-  max-width: 400px;
-  width: 100%;
-  padding: 2rem 1rem;
-  box-sizing: border-box;
-}
-
-/* Center the register form */
-#register-form {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  width: 100%;
+}
+
+/* Article styles */
+article, #account-deletion {
+  /* Base article styles - card appearance by default */
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 1.6875rem; /* 27px */
+  box-sizing: border-box;
+  margin: 2rem auto;
+  max-width: 600px;
+  width: 100%;
+  color: var(--text-color);
+  transition: all 0.2s ease;
+}
+
+/* Article with top border */
+article.article--bordered {
+  border-top: 1px solid var(--border);
+  padding: 2rem;
+  margin: 2rem auto;
+}
+
+/* Ensure account deletion section matches article styling */
+#account-deletion {
+  padding: 2rem;
+  margin: 2rem auto;
+}
+
+article.article--wide {
+  /* For wider articles */
+  max-width: 800px;
+  padding: 2rem;
+}
+
+/* Forms */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Form elements */
+input[type="email"],
+input[type="text"],
+input[type="password"],
+textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin: 0.25rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  background: var(--background);
+  color: var(--text-color);
+  font-size: 1rem;
+  transition: var(--transition);
+}
+
+input[type="email"]:focus,
+input[type="text"]:focus,
+input[type="password"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(74, 111, 165, 0.25);
+}
+
+/* Buttons */
+button,
+.button,
+input[type="submit"] {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  max-width: 300px;
+  border: none;
+  border-radius: var(--border-radius);
+  background: var(--primary-color);
+  color: white;
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: center;
+  text-decoration: none;
+  padding: 0.5em 1em;
+}
+
+button:hover:not(#logout-button):not(#delete-account-from-privacy),
+.button:hover:not(#logout-button):not(#delete-account-from-privacy),
+input[type="submit"]:hover:not(#logout-button):not(#delete-account-from-privacy) {
+  background: var(--primary-hover);
+}
+
+button:active:not(#logout-button):not(#delete-account-from-privacy),
+.button:active:not(#logout-button):not(#delete-account-from-privacy),
+input[type="submit"]:active:not(#logout-button):not(#delete-account-from-privacy) {
+  opacity: 0.9;
+}
+
+/* Special button styles */
+#logout-button,
+#delete-account-from-privacy,
+.email-section .button {
+  background: transparent !important;
+  color: var(--warning) !important;
+  border: 1px solid var(--warning) !important;
+  display: block;
   margin: 0 auto;
 }
 
-#register-form p {
-  margin: 0.5rem 0;
-  width: 100%;
+#logout-button:hover,
+#delete-account-from-privacy:hover,
+.email-section .button:hover {
+  background: rgba(255, 102, 0, 0.1) !important;
 }
 
-#register-form label {
+/* Logout Section */
+.logout-section {
+  width: 100%;
+  max-width: 600px;
+  margin: 2rem auto;
+  text-align: center;
+  padding: 2rem;
+  cursor: default;
+}
+
+/* Centered Container */
+.centered-container {
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+/* Email Section */
+.email-section {
+  text-align: center;
+  margin: 2em 0;
+}
+
+.email-section .button {
+  display: inline-block;
+}
+
+/* Utility Classes */
+.text-center { text-align: center; }
+.text-muted { color: var(--text-muted); }
+.mt-1 { margin-top: 0.5rem; }
+.mb-1 { margin-bottom: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+
+/* Audio Player Specific Styles */
+.audio-player {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1rem;
+  background: var(--surface);
+  border-radius: var(--border-radius);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.audio-progress {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+}
+
+.audio-progress-filled {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+
+.time-display {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Form Elements */
+form {
+  max-width: 600px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+label {
   display: block;
   margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-color);
 }
 
-#register-form input[type="email"],
-#register-form input[type="text"] {
+input[type="email"],
+input[type="text"],
+input[type="password"] {
   width: 100%;
-  padding: 0.5rem;
-  box-sizing: border-box;
-}
-
-#register-form button[type="submit"] {
-  margin-top: 1rem;
-  width: calc(250px + 1.6em);
   padding: 0.75rem;
-  cursor: pointer;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  background-color: var(--background);
+  color: var(--text-color);
+  font-size: 1rem;
+  transition: var(--transition);
   max-width: 100%;
   box-sizing: border-box;
 }
 
-/* Style text inputs in register form */
-#register-page #register-form input[type="email"],
-#register-page #register-form input[type="text"] {
-  width: calc(250px + 1.6em);
-  max-width: 100%;
-  box-sizing: border-box;
+input[type="email"]:focus,
+input[type="text"]:focus,
+input[type="password"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(74, 111, 165, 0.25);
+}
+
+button,
+input[type="submit"],
+input[type="button"] {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 300px;
+  display: block;
+}
+
+button:hover:not(:disabled):not(#logout-button):not(#delete-account-from-privacy),
+input[type="submit"]:hover:not(:disabled):not(#logout-button):not(#delete-account-from-privacy),
+input[type="button"]:hover:not(:disabled):not(#logout-button):not(#delete-account-from-privacy) {
+  background-color: var(--primary-hover);
+}
+
+button:disabled,
+input[type="submit"]:disabled,
+input[type="button"]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Form Notes */
+.form-note {
+  display: block;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin: 0.5rem 0 1rem;
+  line-height: 1.4;
+}
+
+.session-note {
+  opacity: 0.65;
+  margin-top: 1rem;
+}
+
+/* Bot trap - hide from view but keep accessible to screen readers */
+.bot-trap {
+  position: absolute;
+  left: -9999px;
+  opacity: 0;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
 }
 
 /* Add subtle dividers between sections */
-section + section,
-article + article {
-  border-top: 1px solid #444;
+section + section {
+  border-top: 1px solid var(--border);
 }
 
 nav#guest-dashboard.dashboard-nav {
@@ -113,7 +484,7 @@ nav#guest-dashboard.dashboard-nav {
 
 .toast {
   background: rgba(30, 30, 30, 0.95);
-  color: #fff;
+  color: var(--text-light);
   padding: 1.2em 2em;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
@@ -155,10 +526,236 @@ nav#guest-dashboard.dashboard-nav {
   pointer-events: auto;
 }
 
+/* Me Page Header */
+#me-page > div {
+  position: relative;
+  margin: 0 0 1.5rem 0;
+  text-align: center;
+}
+
+/* Me page h2 uses section-header class */
+
+#me-page .header-actions {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Common Button Styles */
+.action-btn {
+  font-size: 1rem;
+  padding: 0.5em 1em;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  min-height: 2.5em;
+  transition: all 0.2s ease;
+  text-align: center;
+  line-height: 1.2;
+  color: var(--text-light);
+}
+
+/* Button specific styles */
+#delete-account-button {
+  background-color: var(--error);
+}
+
+#delete-account-button:hover {
+  background-color: var(--error-hover);
+}
+
+#logout-button {
+  background: var(--primary-color);
+}
+
+#logout-button:hover {
+  background: var(--primary-hover);
+}
+
+/* Quota meter and uploaded files section */
+#quota-meter {
+  background: var(--surface); /* Match article background */
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 1.6875rem;
+  box-sizing: border-box;
+  margin: 2rem auto;
+  max-width: 600px;
+  width: 100%;
+  color: var(--text-light);
+}
+
+#quota-meter {
+  transition: all 0.2s ease;
+}
+
+#quota-meter h4 {
+  font-weight: 400;
+  text-align: center;
+  margin: 1.5rem 0 0.75rem;
+  color: var(--text);
+}
+
+#quota-meter > h4 {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s ease;
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+.file-item:hover {
+  background-color: var(--surface-hover);
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 1rem;
+}
+
+.stored-as {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.25rem;
+}
+
+.file-size {
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-size: 0.9em;
+  margin-right: 0.5rem;
+}
+
+.delete-file {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  margin-left: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.delete-file:hover {
+  color: var(--danger);
+  background-color: rgba(255, 99, 71, 0.1);
+  opacity: 1;
+}
+
+.delete-file:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--danger);
+}
+
+.stored-as .delete-file {
+  margin-left: 0.5rem;
+  font-size: 0.8em;
+}
+
+.loading-message,
+.empty-message {
+  padding: 0.75rem 1rem;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.empty-message {
+  color: var(--text-muted);
+}
+
+#uploaded-files > div:first-child {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
+}
+
+#file-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  border-radius: 4px;
+  background: var(--background);
+  margin: 0;
+  list-style: none;
+}
+
+#file-list > div {
+  padding: 0.5rem 0;
+  color: var(--text-muted);
+  font-style: italic;
+  border-bottom: 1px solid var(--border);
+}
+
+#file-list > div:last-child {
+  border-bottom: none;
+}
+
+#quota-meter:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
 .quota-meter {
   font-size: 0.9em;
-  margin-top: 0.5em;
-  color: #555;
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+}
+
+#file-list {
+  margin: 1rem 0 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+#file-list > div {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+#file-list > div:last-child {
+  border-bottom: none;
 }
 
 .footer-hint {
@@ -173,7 +770,7 @@ nav#guest-dashboard.dashboard-nav {
   margin-top: 0.4em;
   font-size: 0.95em;
   background: #b22222;
-  color: white;
+  color: var(--text-light);
   border: none;
   padding: 0.5em 1.2em;
   border-radius: 4px;
@@ -188,7 +785,7 @@ nav#guest-dashboard.dashboard-nav {
 .delete-account {
   margin-top: 1em;
   background: #ccc;
-  color: black;
+  color: var(--text-light);
   padding: 0.4em 1em;
   border-radius: 5px;
   font-size: 0.9em;
@@ -249,17 +846,17 @@ audio {
 }
 
 #me-page .audio-controls button:hover {
-  background: #222;
+  background: var(--audio-bg, #222);
   transform: scale(1.05);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-  border-color: #666;
+  border-color: var(--border-lighter);
 }
 
 .audio-controls button {
   background: rgba(26, 26, 26, 0.9);
   border: 2px solid #444;
   border-radius: 12px;
-  color: #f0f0f0;
+  color: var(--text-light);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -284,10 +881,10 @@ audio {
 
 /* Hover and active states */
 .audio-controls button:hover {
-  background: #222;
+  background: var(--audio-bg, #222);
   transform: scale(1.05);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-  border-color: #666;
+  border-color: var(--border-lighter);
 }
 
 .audio-controls button:active {
@@ -315,7 +912,7 @@ audio {
 .audio-controls button:active {
   transform: scale(0.98);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  background: #1a1a1a;
+  background: var(--background);
 }
 
 .audio-controls svg {
@@ -347,11 +944,11 @@ main > section {
   width: 100%;
   max-width: 900px;
   padding: 2em;
-  background: #1a1a1a;
+  background: var(--background);
   border: 1px solid var(--audio-metal);
   border-radius: 8px;
   margin-bottom: 1.5em;
-  color: var(--audio-text);
+  color: var(--text-light);
   text-shadow: 0 0 2px rgba(255, 102, 0, 0.2);
   position: relative;
 }
@@ -382,9 +979,9 @@ main > section::before {
 
 /* Audio controls styling */
 button.audio-control {
-  background: #333;
-  border: 2px solid #555;
-  color: #fff;
+  background: var(--audio-metal, #333);
+  border: 2px solid var(--border-light);
+  color: var(--text-light);
   padding: 0.5em 1em;
   border-radius: 6px;
   cursor: pointer;
@@ -407,52 +1004,61 @@ button.audio-control {
 #register-form label {
   display: inline;
   margin-right: 10px;
-  color: #d3d3d3;
+  color: var(--text-color);
   font-family: 'Courier New', monospace;
 }
 
 #register-form input[type="text"],
 #register-form input[type="email"],
 #register-form input[type="password"] {
-  display: inline;
+  display: block;
   background-color: rgb(26, 26, 26);
   border: 1px solid #444;
-  color: #d3d3d3;
+  color: var(--text-light);
   padding: 0.8em;
   border-radius: 4px;
-  width: 250px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
   transition: all 0.2s ease;
+  margin: 0.5rem 0;
 }
 
 #register-form input[type="text"]:focus,
 #register-form input[type="email"]:focus,
 #register-form input[type="password"]:focus {
   outline: none;
-  border-color: #ff6600;
+  border-color: var(--warning);
   box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.1);
 }
 
 /* Submit button styling */
 #register-form button[type="submit"] {
-  display: inline;
-  width: calc(250px + 1.6em);
+  display: block;
+  width: 100%;
+  max-width: 100%;
   padding: 0.8em;
   background: transparent;
-  color: #d3d3d3;
+  color: var(--text-light);
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
-  margin-top: 1.25em;
-  transition: color 0.3s;
+  margin: 1.25em 0 0 0;
+  transition: all 0.3s ease;
   font-family: 'Courier New', monospace;
   text-align: center;
   border: 1px solid #444;
-  background: #1a1a1a;
+  background: var(--background);
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
 }
 
 #register-form button[type="submit"]:hover {
-  color: #ff6600;
+  color: var(--warning);
 }
 
 #register-form button[type="submit"]:active {
@@ -463,15 +1069,15 @@ button.audio-control {
 }
 
 button.audio-control:hover {
-  background: #444;
-  border-color: #666;
+  background: var(--border);
+  border-color: var(--border-lighter);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
 /* Audio meter styling */
 .audio-meter {
-  background: #333;
-  border: 1px solid #555;
+  background: var(--audio-metal, #333);
+  border: 1px solid var(--border-light);
   height: 10px;
   border-radius: 5px;
   overflow: hidden;
@@ -488,14 +1094,19 @@ button.audio-control:hover {
   list-style: none;
   padding: 0;
   margin: 0;
-  background: #1a1a1a;
+  background: var(--background);
   border: 1px solid var(--audio-metal);
   border-radius: 8px;
   overflow: hidden;
 }
 
+/* Stream list items - styles moved to .stream-player */
 #stream-list > li {
-  background: #1a1a1a;
+  background: transparent;
+  border: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 /* Stream player styling */
@@ -531,7 +1142,7 @@ button.audio-control:hover {
   width: 100%;
   max-width: 500px;
   margin: 1em 0;
-  background: #1a1a1a;
+  background: var(--background);
   border: 1px solid #444;
   border-radius: 6px;
 }
@@ -540,7 +1151,7 @@ button.audio-control:hover {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background: #1a1a1a;
+  background: var(--background);
   border: none;
   border-radius: 6px;
   width: 100%;
@@ -556,7 +1167,7 @@ button.audio-control:hover {
   left: 0.5em;
   top: 50%;
   transform: translateY(-50%);
-  color: #2e8b57;
+  color: var(--success);
   font-size: 1.5em;
   cursor: pointer;
   z-index: 1;
@@ -564,7 +1175,7 @@ button.audio-control:hover {
 
 /* Custom progress bar */
 .stream-player audio::-webkit-progress-bar {
-  background: #444;
+  background: var(--border);
   border-radius: 3px;
 }
 
@@ -586,35 +1197,15 @@ button.audio-control:hover {
 
 .stream-player audio::-webkit-slider-runnable-track {
   height: 4px;
-  background: #444;
+  background: var(--border);
   border-radius: 2px;
 }
 
-/* Guest login heading styling */
-#guest-login h2 {
-  color: var(--audio-accent);
-  font-size: 1.1em;
-  margin: 0.5em 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 500;
-  text-align: center;
-  display: inline-block;
-  background: #2e8b57;
-  color: white;
-  padding: 0.4em 1em;
-  border-radius: 5px;
-  text-decoration: none;
-  transition: background 0.2s ease;
-}
-
-#guest-login h2:hover {
-  background: #256b45;
-}
+/* Guest login h2 uses guest-login class */
 
 .audio-list li {
-  background: #333;
-  border: 1px solid #555;
+  background: var(--audio-metal, #333);
+  border: 1px solid var(--border-light);
   padding: 1em;
   margin-bottom: 0.5em;
   border-radius: 6px;
@@ -622,8 +1213,8 @@ button.audio-control:hover {
 }
 
 .audio-list li:hover {
-  background: #444;
-  border-color: #666;
+  background: var(--border);
+  border-color: var(--border-lighter);
   transform: translateY(-1px);
 }
 
@@ -634,7 +1225,8 @@ button.audio-control:hover {
   border-radius: 8px;
   margin: 2em auto;
   max-width: 600px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  width: 100%;
+  color: var(--text-light);
   transition: opacity 0.6s ease;
   opacity: 1;
 }
@@ -654,7 +1246,7 @@ button.audio-control:hover {
 
 #quota-bar[value="100"] + #quota-text::after {
   content: " (Full)";
-  color: #b22222;
+  color: var(--error);
   font-weight: bold;
 }
 
@@ -664,7 +1256,7 @@ input[disabled], button[disabled] {
 }
 
 .uploading-toast {
-  color: #1e90ff;
+  color: var(--info);
   background: #eaf4ff;
   border: 1px solid #b3daff;
   padding: 0.5em 1em;
@@ -675,7 +1267,7 @@ input[disabled], button[disabled] {
 }
 
 .success-toast {
-  color: #2e8b57;
+  color: var(--success);
   background: #e7f6ed;
   border: 1px solid #c2e3d3;
   padding: 0.5em 1em;
@@ -688,7 +1280,7 @@ input[disabled], button[disabled] {
 #stream-info, #stream-info * {
   display: initial !important;
   visibility: visible !important;
-  color: #222 !important;
+  color: var(--background) !important;
   background: #fff !important;
 }
 
@@ -698,7 +1290,7 @@ html {
   min-height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #111;
+  background-color: var(--background);
   background-image:
     repeating-linear-gradient(
       45deg,
@@ -725,21 +1317,13 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  color: #f0f0f0;
+  color: var(--text-light);
   font-family: sans-serif;
   line-height: 1.6;
   background: transparent;
 }
 
-/* Ensure main content stretches to fill available space */
-main {
-  flex: 1 0 auto;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1rem;
-  box-sizing: border-box;
-}
+/* Main content styles are defined once at the top of the file */
 
 main > section {
   width: 100%;
@@ -753,12 +1337,7 @@ main > section {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-section > article {
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  box-shadow: none;
-}
+/* Section articles use the article--plain class */
 
 /* Fallback for browsers that don't support flexbox */
 @supports not (display: flex) {
@@ -777,6 +1356,7 @@ section > article {
 
 header h1 {
   animation: slideDown 0.6s ease-out;
+  margin: 1rem 0; /* Equal top and bottom margins to match other headings */
 }
 
 header h1::before {
@@ -798,35 +1378,6 @@ footer p {
   opacity: 0.8;
 }
 
-.dropzone::before {
-  animation: emojiBounce 0.6s ease-out;
-  content: "📤 ";
-  font-size: 1.2em;
-  display: block;
-  margin-bottom: 0.5em;
-}
-
-.dropzone {
-  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-  border: 2px dashed #999;
-  padding: 2em;
-  text-align: center;
-  cursor: pointer;
-}
-
-.dropzone.dragover {
-  background: #e0f7ff;
-  border-color: #00aaff;
-  box-shadow: 0 0 0.4em rgba(0, 170, 255, 0.4);
-  background: #f0f8ff;
-  border-color: #00aaff;
-}
-
-.dropzone.pulse,
-.dropzone.pulse::before {
-  box-shadow: 0 0 0.6em rgba(0, 170, 255, 0.6);
-  animation: pulse 0.6s ease-in-out;
-}
 
 /* Reusable glowing pulse */
 .pulse-glow {
@@ -843,7 +1394,7 @@ footer p {
   margin-top: 0.8em;
   font-size: 0.95em;
   text-align: center;
-  color: #555;
+  color: var(--text-light);
 }
 
 .emoji-bounce {
@@ -890,7 +1441,7 @@ footer p {
 }
 
 .error-toast {
-  color: #b22222;
+  color: var(--error);
   background: #fcebea;
   border: 1px solid #f5c6cb;
   padding: 0.5em 1em;
@@ -932,8 +1483,8 @@ a.button[aria-label]::after {
   left: 50%;
   bottom: 100%;
   transform: translateX(-50%);
-  background: #333;
-  color: #fff;
+  background: var(--audio-metal, #333);
+  color: var(--text-light);
   font-size: 0.75em;
   padding: 0.3em 0.6em;
   border-radius: 4px;
@@ -951,8 +1502,7 @@ a.button[aria-label]:hover::after {
 a.button {
   display: inline-block;
   background: #2e8b57;
-  color: white;
-  padding: 0.4em 1em;
+  color: var(--text-light);
   margin-top: 0.5em;
   border-radius: 4px;
   text-decoration: none;
@@ -976,17 +1526,17 @@ section article.stream-page {
 }
 
 .stream-player {
-  background: #1a1a1a;
+  background: var(--background);
   border: 1px solid #444;
   border-radius: 8px;
   position: relative;
-  color: #d3d3d3;
+  color: var(--text-light);
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .stream-player h3 {
   margin: 0 0 15px 0;
-  color: #d3d3d3;
+  color: var(--text-light);
 }
 
 .stream-audio {
@@ -1010,7 +1560,7 @@ section article.stream-page {
   background: none;
   border: none;
   box-shadow: none;
-  color: #f0f0f0;
+  color: var(--text-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1022,35 +1572,49 @@ section article.stream-page {
 
 .stream-info {
   margin: 0;
-  color: #666;
+  color: var(--text-muted);
   font-size: 0.9em;
 }
 
 /* Stream list styles */
-#stream-page article {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-}
+/* Stream page articles use the article--plain class */
 
 /* User upload area styles */
 #user-upload-area {
   width: 100%;
   margin: 1.5rem auto;
-  padding: 1.5rem;
-  background: var(--crt-screen);
-  border: 1px solid #444;
+  padding: 1.6875rem; /* 27px - matches article padding */
+  background: var(--surface);
+  border: 1px solid var(--border-color, #2a2a2a);
   border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s ease; /* Matches article transition timing */
+  position: relative;
+  color: var(--text-light); /* Match article text color */
 }
 
-#user-upload-area:hover {
-  transform: translateY(-2px);
-  background: linear-gradient(45deg, rgba(255, 102, 0, 0.05), rgba(255, 102, 0, 0.02));
-  border: 1px solid #ff6600;
+#user-upload-area::before {
+  animation: emojiBounce 0.6s ease-out;
+  content: "📤 ";
+  font-size: 1.2em;
+  display: block;
+  margin-bottom: 0.5em;
+}
+
+/* Removed duplicate hover effect - now using the shared hover effect below */
+
+#user-upload-area.dragover {
+  background: #e0f7ff;
+  border-color: var(--info);
+  box-shadow: 0 0 0.4em rgba(0, 170, 255, 0.4);
+}
+
+#user-upload-area.pulse,
+#user-upload-area.pulse::before {
+  box-shadow: 0 0 0.6em rgba(0, 170, 255, 0.6);
+  animation: pulse 0.6s ease-in-out;
 }
 
 #user-upload-area p {
@@ -1069,11 +1633,11 @@ section article.stream-page {
 }
 
 #stream-list > li {
-  background: #222;
+  background: var(--audio-bg, #222);
   border: 1px solid #444;
   border-radius: 8px;
   overflow: hidden;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease;
   margin: 0;
   width: 100%;
   box-sizing: border-box;
@@ -1081,7 +1645,19 @@ section article.stream-page {
 
 #stream-list > li:hover {
   transform: translateY(-2px);
-  border-color: #ff6600;
+  border-color: var(--warning);
+}
+
+/* No hover effect for logout button */
+#logout-button,
+#logout-button:hover,
+#logout-button:active {
+  cursor: pointer;
+  transform: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--warning) !important;
+  border-color: var(--warning) !important;
 }
 
 .stream-player {
@@ -1093,15 +1669,20 @@ section article.stream-page {
   transition: all 0.25s ease;
 }
 
-.stream-player:hover {
+/* Consistent hover effects for all interactive elements */
+article:hover,
+.stream-player:hover,
+#user-upload-area:hover {
   transform: translateY(-2px);
-  border-color: #ff6600;
-  background: linear-gradient(45deg, rgba(255, 102, 0, 0.05), rgba(255, 102, 0, 0.02));
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border-color: var(--border-hover, #444);
+  background: var(--surface); /* Match the normal state background */
+  transition: all 0.2s ease;
 }
 
 .stream-player h3 {
   margin: 0 0 1.25rem;
-  color: #fff;
+  color: var(--text-light);
   font-size: 1.3rem;
   font-weight: 500;
   text-align: center;
@@ -1112,8 +1693,8 @@ section article.stream-page {
 
 .stream-info {
   margin: 1.25rem 0 0;
-  color: #a0a0a0 !important;
-  font-size: 0.9rem !important;
+  color: var(--text-muted);
+  font-size: 0.9rem;
   text-align: center;
   line-height: 1.6;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -1142,20 +1723,20 @@ section article.stream-page {
 }
 
 #stream-list a {
-  color: #4dabf7;
+  color: var(--info);
   text-decoration: none;
   font-weight: 500;
   transition: color 0.2s ease;
 }
 
 #stream-list a:hover {
-  color: #74c0fc;
+  color: var(--link-hover);
   text-decoration: underline;
 }
 
 #stream-list .stream-meta {
   display: block;
-  color: #888;
+  color: var(--text-muted);
   font-size: 0.85rem;
   margin-top: 0.5rem;
 }
@@ -1187,11 +1768,9 @@ section article.stream-page {
 
 /* Responsive adjustments */
 @media (max-width: 767px) {
-  #stream-page article {
+  /* Articles with plain style on mobile */
+  .article--plain {
     padding: 1rem;
-    border: none;
-    background: transparent;
-    box-shadow: none;
   }
   
   #stream-list {
@@ -1203,28 +1782,16 @@ section article.stream-page {
   }
 }
 
-/* Section h2 headers */
-main > section > h2 {
-  text-align: center;
-  margin: 0;
-  padding: 1rem 1.5rem;
-  color: #f0f0f0;
-  font-size: 1.8rem;
-  font-weight: 500;
-}
+/* Section headers use section-header class */
 
-/* Article styles consolidated above */
-
-/* Stream page specific styles */
-#stream-page > article {
+/* Stream page articles use article--plain and article--wide classes */
+.article--stream {
   max-width: 1200px; /* Wider for the stream list */
   padding: 2rem 1rem; /* Match padding of other sections */
-  margin: 0 auto; /* Ensure centering */
 }
 
-/* Full width for form elements */
-#register-page article,
-#me-page > article {
+/* Full width articles use the article--wide class */
+.article--wide {
   max-width: 100%;
 }
 
@@ -1235,33 +1802,12 @@ main > section:has(> h2:only-child) {
 
 /* Space between h2 and logout button is now handled inline */
 
-section article a[href^="mailto"]::before {
-  content: "✉️ ";
-  margin-right: 0.3em;
-}
-
-section article a[href^="mailto"] {
-  display: inline-block;
-  background: #2e8b57;
-  color: white;
-  padding: 0.3em 0.9em;
-  margin-top: 0.5em;
-  border-radius: 4px;
-  text-decoration: none;
-  font-weight: bold;
-  transition: background 0.2s ease;
-}
-
-section article a[href^="mailto"]:hover {
-  background: #256b45;
-}
-
 code {
-  background: #1a1a1a;
+  background: var(--background);
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-family: 'Courier New', monospace;
-  color: #fff;
+  color: var(--text-light);
   text-shadow: 0 0 4px rgba(0, 255, 0, 0.1);
 }
 
@@ -1318,7 +1864,6 @@ main::before {
 nav#guest-dashboard.dashboard-nav,
 nav#user-dashboard.dashboard-nav {
   width: fit-content;
-  margin: 20px auto;
   padding: 10px;
   background: var(--crt-screen);
   border: 1px solid var(--crt-border);
@@ -1335,7 +1880,7 @@ nav.dashboard-nav a {
 }
 
 nav.dashboard-nav a:hover {
-  color: #ff6600;
+  color: var(--warning);
 }
 
 /* Toast notification styles */
@@ -1354,7 +1899,7 @@ nav.dashboard-nav a:hover {
 }
 
 .footer-links a:hover {
-  color: #ff6600;
+  color: var(--warning);
 }
 
 
@@ -1368,11 +1913,15 @@ footer p.footer-hint a {
 }
 
 footer p.footer-hint a:hover {
-  color: #ff6600;
+  color: var(--warning);
 }
 
 @media (min-width: 960px) {
   /* Set max-width for content sections */
+  /* Wide articles remain full width on mobile */
+  .article--wide {
+    padding: 1.5rem;
+  }
   #register-page > article,
   #me-page > article,
   #user-upload-area {
@@ -1488,10 +2037,10 @@ footer p.footer-hint a:hover {
 }
 
 .logout-btn:hover {
-  background: #222;
+  background: var(--audio-bg, #222);
   transform: scale(1.05);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-  border-color: #666;
+  border-color: var(--border-lighter);
 }
 
 .logout-btn:active {

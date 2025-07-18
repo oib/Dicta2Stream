@@ -36,6 +36,145 @@
     box-sizing: border-box;
   }
 
+  /* Mobile navigation */
+  #user-dashboard.dashboard-nav {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  .dashboard-nav {
+    display: flex;
+    justify-content: space-around;
+    padding: 0.5rem 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    margin-bottom: 1rem;
+  }
+  
+  .dashboard-nav a {
+    padding: 0.5rem 0.25rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    text-decoration: none;
+    flex: 1;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+  }
+  
+  .dashboard-nav a:hover,
+  .dashboard-nav a:focus {
+    background-color: var(--hover-bg);
+    outline: none;
+  }
+  
+
+  
+  /* Account Deletion Section */
+  #privacy-page.active #account-deletion,
+  #privacy-page:not(.active) #account-deletion {
+    display: block !important;
+    opacity: 1 !important;
+    position: relative !important;
+    clip: auto !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  
+  .account-deletion-section {
+    margin: 2rem 0;
+    padding: 1.75rem;
+    background: rgba(26, 26, 26, 0.8);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+  }
+  
+  .account-deletion-section h3 {
+    color: #fff;
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .account-deletion-section h3 {
+    color: #fff;
+    margin-bottom: 1rem;
+    font-size: 1.4rem;
+  }
+  
+  .account-deletion-section ul {
+    margin: 1.5rem 0 2rem 1.5rem;
+    padding-left: 0.5rem;
+  }
+  
+  .account-deletion-section li {
+    margin-bottom: 0.75rem;
+    color: #f0f0f0;
+    line-height: 1.5;
+    position: relative;
+    padding-left: 1.5rem;
+  }
+  
+  .account-deletion-section li:before {
+    content: '•';
+    color: #ff5e57;
+    font-weight: bold;
+    font-size: 1.5rem;
+    position: absolute;
+    left: 0;
+    top: -0.25rem;
+  }
+  
+  .danger-button {
+    background: linear-gradient(135deg, #ff3b30, #ff5e57);
+    color: white;
+    border: none;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    max-width: 300px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(255, 59, 48, 0.3);
+    text-align: center;
+  }
+  
+  .danger-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);
+  }
+  
+  .danger-button:active {
+    transform: translateY(0);
+  }
+  
+  .text-link {
+    color: #4dabf7;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  
+  .text-link:hover {
+    color: #74c0fc;
+    text-decoration: underline;
+  }
+
+  /* Hide desktop navigation in mobile */
+  nav.dashboard-nav {
+    display: none;
+  }
+
   header {
     padding: 0.5rem 1rem;
   }
@@ -98,15 +237,22 @@
   }
 
   #quota-meter {
-    margin: 1rem 0;
+    max-width: 600px;
+    width: 100%;
+    margin: 1rem auto;
+    padding: 0 1rem;
+    box-sizing: border-box;
   }
 
   .quota-meter {
     height: 20px;
   }
 
+  /* Stream item styles moved to .stream-player */
   .stream-item {
-    padding: 0.75rem;
+    padding: 0;
+    margin: 0;
+    border: none;
   }
 
   .modal-content {
@@ -183,8 +329,8 @@
   nav.dashboard-nav a {
     all: unset;
     display: inline-block;
-    background-color: #1e1e1e;
-    color: #fff;
+    background-color: var(--surface);
+    color: var(--text-color);
     padding: 0.5rem 1rem;
     margin: 0 0.25rem;
     border-radius: 4px;
@@ -197,7 +343,7 @@
   }
 
   .dashboard-nav a:active {
-    background-color: #333;
+    background-color: var(--border);
   }
 
   /* Stream page specific styles */
@@ -215,11 +361,19 @@
   }
 
   #stream-list {
-    padding: 0.5rem;
+    padding: 0 1rem;
+    margin: 0 auto;
+    max-width: 600px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   #stream-list li {
-    margin-bottom: 1rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    list-style: none;
   }
 
   .stream-player {
@@ -234,18 +388,22 @@
     font-size: 0.9rem;
   }
 
-  #stream-list > li {
-    margin-bottom: 1.5rem;
-  }
+  /* Stream list items are now handled by the rules above */
 
-  /* User upload area */
+  /* User upload area - matches article styling */
   #user-upload-area {
-    margin: 1rem 0;
-    padding: 1.5rem;
+    margin: 2rem auto;
+    padding: 1.6875rem;
+    background: var(--surface);
+    border: 1px solid var(--border-color, #2a2a2a);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     text-align: center;
     cursor: pointer;
-    border: 2px dashed #666;
-    border-radius: 8px;
+    max-width: 600px;
+    width: 100%;
+    box-sizing: border-box;
+    color: var(--text-color);
   }
 
   #user-upload-area p {
@@ -268,7 +426,7 @@
 
   .stream-info {
     font-size: 0.9rem;
-    color: #aaa;
+    color: var(--text-muted);
     margin-bottom: 0.5rem;
   }
 
@@ -277,14 +435,31 @@
   }
 
   /* Form elements */
+
   input[type="text"],
   input[type="email"],
   input[type="password"],
   textarea {
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
     padding: 0.75rem;
     margin: 0.5rem 0;
     font-size: 1rem;
+    border-radius: 4px;
+    border: 1px solid #444;
+    background-color: #2a2a2a;
+    color: #f0f0f0;
+  }
+  
+  /* Firefox mobile specific fixes */
+  @-moz-document url-prefix() {
+    input[type="email"] {
+      min-height: 2.5rem;
+      appearance: none;
+    }
   }
 
   /* Adjust audio element for mobile */

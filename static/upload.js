@@ -112,8 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Function to fetch and display uploaded files
-  async function fetchAndDisplayFiles(uid) {
-    console.log('[DEBUG] fetchAndDisplayFiles called with uid:', uid);
+  async function fetchAndDisplayFiles(uidFromParam) {
+    console.log('[UPLOAD] fetchAndDisplayFiles called with uid:', uidFromParam);
+    
+    // Get the file list element
     const fileList = document.getElementById('file-list');
     if (!fileList) {
       const errorMsg = 'File list element not found in DOM';
@@ -121,12 +123,47 @@ document.addEventListener('DOMContentLoaded', () => {
       return showErrorInUI(errorMsg);
     }
 
+    // Get UID from parameter, localStorage, or cookie
+    const uid = uidFromParam || localStorage.getItem('uid') || getCookie('uid');
+    const authToken = localStorage.getItem('authToken');
+    const headers = {
+      'Accept': 'application/json',
+    };
+  
+    // Include auth token in headers if available, but don't fail if it's not
+    // The server should handle both token-based and UID-based auth
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    } else {
+      console.debug('[UPLOAD] No auth token available, using UID-only authentication');
+    }
+
+    console.log('[UPLOAD] Auth state - UID:', uid, 'Token exists:', !!authToken);
+
+    if (!uid) {
+      console.error('[UPLOAD] No UID found in any source');
+      fileList.innerHTML = '<li class="error-message">User session expired. Please refresh the page.</li>';
+      return;
+    }
+
+    // Log the authentication method being used
+    if (!authToken) {
+      console.debug('[UPLOAD] No auth token found, using UID-only authentication');
+    } else {
+      console.debug('[UPLOAD] Using token-based authentication');
+    }
+
     // Show loading state
-    fileList.innerHTML = '<div style="padding: 10px; color: #888; font-style: italic;">Loading files...</div>';
+    fileList.innerHTML = '<li class="loading-message">Loading files...</li>';
 
     try {
       console.log(`[DEBUG] Fetching files for user: ${uid}`);
-      const response = await fetch(`/me/${uid}`);
+      const response = await fetch(`/me/${uid}`, {
+        headers: {
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+          'Content-Type': 'application/json',
+        },
+      });
       console.log('[DEBUG] Response status:', response.status, response.statusText);
       
       if (!response.ok) {
@@ -152,20 +189,62 @@ document.addEventListener('DOMContentLoaded', () => {
           const displayName = file.original_name || file.name;
           const isRenamed = file.original_name && file.original_name !== file.name;
           return `
-            <div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #2a2a2a;">
-              <div style="flex: 1; min-width: 0;">
-                <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${displayName}">
-                  ${displayName}
-                  ${isRenamed ? `<div style="font-size: 0.8em; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Stored as: ${file.name}">${file.name}</div>` : ''}
-                </div>
+            <li class="file-item" data-filename="${file.name}">
+              <div class="file-name" title="${displayName}">
+                ${displayName}
+                ${isRenamed ? `<div class="stored-as" title="Stored as: ${file.name}">${file.name} <button class="delete-file" data-filename="${file.name}" title="Delete file">🗑️</button></div>` : 
+                  `<button class="delete-file" data-filename="${file.name}" title="Delete file">🗑️</button>`}
               </div>
-              <span style="color: #888; white-space: nowrap; margin-left: 10px;">${sizeMB} MB</span>
-            </div>
+              <span class="file-size">${sizeMB} MB</span>
+            </li>
           `;
         }).join('');
       } else {
-        fileList.innerHTML = '<div style="padding: 5px 0; color: #888; font-style: italic;">No files uploaded yet</div>';
+        fileList.innerHTML = '<li class="empty-message">No files uploaded yet</li>';
       }
+      
+      // Add event listeners to delete buttons
+      document.querySelectorAll('.delete-file').forEach(button => {
+        button.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const filename = button.dataset.filename;
+          if (confirm(`Are you sure you want to delete ${filename}?`)) {
+            try {
+              // Get the auth token from the cookie
+              const token = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('sessionid='))
+                ?.split('=')[1];
+              
+              if (!token) {
+                throw new Error('Not authenticated');
+              }
+              
+              const response = await fetch(`/delete/${filename}`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+              
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `Failed to delete file: ${response.statusText}`);
+              }
+              
+              // Refresh the file list
+              const uid = document.body.dataset.userUid;
+              if (uid) {
+                fetchAndDisplayFiles(uid);
+              }
+            } catch (error) {
+              console.error('Error deleting file:', error);
+              alert('Failed to delete file. Please try again.');
+            }
+          }
+        });
+      });
       
       // Update quota display if available
       if (data.quota !== undefined) {
@@ -176,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
           quotaSec.hidden = false;
           bar.value = data.quota;
           bar.max = 100;
-          text.textContent = `${data.quota.toFixed(1)} MB used`;
+          text.textContent = `${data.quota.toFixed(1)} MB`;
         }
       }
     } catch (error) {
@@ -193,15 +272,15 @@ document.addEventListener('DOMContentLoaded', () => {
           margin: 5px 0;
           background: #2a0f0f;
           border-left: 3px solid #f55;
-          color: #ff9999;
+          color: var(--error-hover);
           font-family: monospace;
           font-size: 0.9em;
           white-space: pre-wrap;
           word-break: break-word;
         ">
-          <div style="font-weight: bold; color: #f55;">Error loading files</div>
+          <div style="font-weight: bold; color: var(--error);">Error loading files</div>
           <div style="margin-top: 5px;">${message}</div>
-          <div style="margin-top: 10px; font-size: 0.8em; color: #888;">
+          <div style="margin-top: 10px; font-size: 0.8em; color: var(--text-muted);">
             Check browser console for details
           </div>
         </div>
@@ -215,6 +294,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fileList) fileList.innerHTML = errorHtml;
       }
     }
+  }
+
+  // Helper function to get cookie value by name
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
   }
 
   // Export functions for use in other modules

@@ -81,7 +81,7 @@ header {
 .nav-link:focus {
   background: rgba(255, 255, 255, 0.1);
   text-decoration: none;
-  color: #fff;
+  color: var(--text-color);
 }
 
 /* Active navigation item */
