@@ -40,8 +40,45 @@ class DBSession(SQLModel, table=True):
     last_activity: datetime = Field(default_factory=datetime.utcnow)
 
 
+class PublicStream(SQLModel, table=True):
+    """Stores public stream metadata for all users"""
+    uid: str = Field(primary_key=True)
+    size: int = 0
+    mtime: int = Field(default_factory=lambda: int(datetime.utcnow().timestamp()))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 def get_user_by_uid(uid: str) -> Optional[User]:
     with Session(engine) as session:
         statement = select(User).where(User.username == uid)
         result = session.exec(statement).first()
         return result
+
+
+def verify_session(db: Session, token: str) -> DBSession:
+    """Verify a session token and return the session if valid"""
+    from datetime import datetime
+    
+    # Find the session
+    session = db.exec(
+        select(DBSession)
+        .where(DBSession.token == token)
+        .where(DBSession.is_active == True)  # noqa: E712
+        .where(DBSession.expires_at > datetime.utcnow())
+    ).first()
+    
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Update last activity
+    session.last_activity = datetime.utcnow()
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    
+    return session

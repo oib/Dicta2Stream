@@ -5,6 +5,8 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from pathlib import Path
+import json
+from datetime import datetime
 from convert_to_opus import convert_to_opus
 from models import UploadLog, UserQuota, User
 from sqlalchemy import select
@@ -115,6 +117,9 @@ async def upload(request: Request, db = Depends(get_db), uid: str = Form(...), f
             db.add(quota)
         quota.storage_bytes += size
         db.commit()
+        
+        # Update public streams list
+        update_public_streams(uid, quota.storage_bytes)
 
         return {
             "filename": file.filename,
@@ -135,3 +140,39 @@ async def upload(request: Request, db = Depends(get_db), uid: str = Form(...), f
         except Exception:
             pass
         return {"detail": f"Server error: {type(e).__name__}: {str(e)}"}
+
+
+def update_public_streams(uid: str, storage_bytes: int, db = Depends(get_db)):
+    """Update the public streams list in the database with the latest user upload info"""
+    try:
+        from models import PublicStream
+        
+        # Get or create the public stream record
+        public_stream = db.get(PublicStream, uid)
+        current_time = datetime.utcnow()
+        
+        if public_stream is None:
+            # Create a new record if it doesn't exist
+            public_stream = PublicStream(
+                uid=uid,
+                size=storage_bytes,
+                mtime=int(current_time.timestamp()),
+                created_at=current_time,
+                updated_at=current_time
+            )
+            db.add(public_stream)
+        else:
+            # Update existing record
+            public_stream.size = storage_bytes
+            public_stream.mtime = int(current_time.timestamp())
+            public_stream.updated_at = current_time
+        
+        db.commit()
+        db.refresh(public_stream)
+        
+    except Exception as e:
+        db.rollback()
+        import traceback
+        print(f"Error updating public streams in database: {e}")
+        print(traceback.format_exc())
+        raise

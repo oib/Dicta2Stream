@@ -1,18 +1,21 @@
 # list_streams.py — FastAPI route to list all public streams (users with stream.opus)
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse, Response
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from models import PublicStream
+from database import get_db
 from pathlib import Path
 import asyncio
+import os
+import json
 
 router = APIRouter()
 DATA_ROOT = Path("./data")
 
 @router.get("/streams-sse")
-async def streams_sse(request: Request):
-    print(f"[SSE] New connection from {request.client.host}")
-    print(f"[SSE] Request headers: {dict(request.headers)}")
-    
+async def streams_sse(request: Request, db: Session = Depends(get_db)):
     # Add CORS headers for SSE
     origin = request.headers.get('origin', '')
     allowed_origins = ["https://dicta2stream.net", "http://localhost:8000", "http://127.0.0.1:8000"]
@@ -32,7 +35,6 @@ async def streams_sse(request: Request):
     
     # Handle preflight requests
     if request.method == "OPTIONS":
-        print("[SSE] Handling OPTIONS preflight request")
         headers.update({
             "Access-Control-Allow-Methods": "GET, OPTIONS",
             "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers", "*"),
@@ -40,17 +42,16 @@ async def streams_sse(request: Request):
         })
         return Response(status_code=204, headers=headers)
     
-    print("[SSE] Starting SSE stream")
-    
     async def event_wrapper():
         try:
-            async for event in list_streams_sse():
+            async for event in list_streams_sse(db):
                 yield event
         except Exception as e:
-            print(f"[SSE] Error in event generator: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            yield f"data: {json.dumps({'error': True, 'message': str(e)})}\n\n"
+            # Only log errors if DEBUG is enabled
+            if os.getenv("DEBUG") == "1":
+                import traceback
+                traceback.print_exc()
+            yield f"data: {json.dumps({'error': True, 'message': 'An error occurred'})}\n\n"
     
     return StreamingResponse(
         event_wrapper(),
@@ -58,75 +59,71 @@ async def streams_sse(request: Request):
         headers=headers
     )
 
-import json
-import datetime
-
-async def list_streams_sse():
-    print("[SSE] Starting stream generator")
-    txt_path = Path("./public_streams.txt")
-    
-    if not txt_path.exists():
-        print(f"[SSE] No public_streams.txt found")
-        yield f"data: {json.dumps({'end': True})}\n\n"
-        return
-    
+async def list_streams_sse(db):
+    """Stream public streams from the database as Server-Sent Events"""
     try:
         # Send initial ping
-        print("[SSE] Sending initial ping")
         yield ":ping\n\n"
         
-        # Read and send the file contents
-        with txt_path.open("r") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                    
-                try:
-                    # Parse the JSON to validate it
-                    stream = json.loads(line)
-                    print(f"[SSE] Sending stream data: {stream}")
-                    
-                    # Send the data as an SSE event
-                    event = f"data: {json.dumps(stream)}\n\n"
-                    yield event
-                    
-                    # Small delay to prevent overwhelming the client
-                    await asyncio.sleep(0.1)
-                    
-                except json.JSONDecodeError as e:
-                    print(f"[SSE] JSON decode error: {e} in line: {line}")
-                    continue
-                except Exception as e:
-                    print(f"[SSE] Error processing line: {e}")
-                    continue
+        # Query all public streams from the database
+        stmt = select(PublicStream).order_by(PublicStream.mtime.desc())
+        result = db.execute(stmt)
+        streams = result.scalars().all()
         
-        print("[SSE] Sending end event")
+        if not streams:
+            yield f"data: {json.dumps({'end': True})}\n\n"
+            return
+            
+        # Send each stream as an SSE event
+        for stream in streams:
+            try:
+                stream_data = {
+                    'uid': stream.uid,
+                    'size': stream.size,
+                    'mtime': stream.mtime,
+                    'created_at': stream.created_at.isoformat() if stream.created_at else None,
+                    'updated_at': stream.updated_at.isoformat() if stream.updated_at else None
+                }
+                yield f"data: {json.dumps(stream_data)}\n\n"
+                # Small delay to prevent overwhelming the client
+                await asyncio.sleep(0.1)
+            except Exception as e:
+                if os.getenv("DEBUG") == "1":
+                    import traceback
+                    traceback.print_exc()
+                continue
+        
+        # Send end of stream marker
         yield f"data: {json.dumps({'end': True})}\n\n"
         
     except Exception as e:
-        print(f"[SSE] Error in stream generator: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        if os.getenv("DEBUG") == "1":
+            import traceback
+            traceback.print_exc()
         yield f"data: {json.dumps({'error': True, 'message': str(e)})}\n\n"
-    finally:
-        print("[SSE] Stream generator finished")
+        yield f"data: {json.dumps({'error': True, 'message': 'Stream generation failed'})}\n\n"
 
-def list_streams():
-    txt_path = Path("./public_streams.txt")
-    if not txt_path.exists():
-        return {"streams": []}
+def list_streams(db: Session = Depends(get_db)):
+    """List all public streams from the database"""
     try:
-        streams = []
-        with txt_path.open("r") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    streams.append(json.loads(line))
-                except Exception:
-                    continue  # skip malformed lines
-        return {"streams": streams}
-    except Exception:
+        stmt = select(PublicStream).order_by(PublicStream.mtime.desc())
+        result = db.execute(stmt)
+        streams = result.scalars().all()
+        
+        return {
+            "streams": [
+                {
+                    'uid': stream.uid,
+                    'size': stream.size,
+                    'mtime': stream.mtime,
+                    'created_at': stream.created_at.isoformat() if stream.created_at else None,
+                    'updated_at': stream.updated_at.isoformat() if stream.updated_at else None
+                }
+                for stream in streams
+            ]
+        }
+    except Exception as e:
+        if os.getenv("DEBUG") == "1":
+            import traceback
+            traceback.print_exc()
         return {"streams": []}
