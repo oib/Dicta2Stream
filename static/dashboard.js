@@ -13,8 +13,12 @@ function getCookie(name) {
 let isLoggingOut = false;
 
 async function handleLogout(event) {
+  console.log('[LOGOUT] Logout initiated');
   // Prevent multiple simultaneous logout attempts
-  if (isLoggingOut) return;
+  if (isLoggingOut) {
+    console.log('[LOGOUT] Logout already in progress');
+    return;
+  }
   isLoggingOut = true;
   
   // Prevent default button behavior
@@ -23,44 +27,145 @@ async function handleLogout(event) {
     event.stopPropagation();
   }
   
+  // Get auth token before we clear it
+  const authToken = localStorage.getItem('authToken');
+  
+  // 1. First try to invalidate the server session (but don't block on it)
+  if (authToken) {
+    try {
+      // We'll use a timeout to prevent hanging on the server request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      
+      try {
+        await fetch('/api/logout', {
+          method: 'POST',
+          credentials: 'include',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+        });
+        clearTimeout(timeoutId);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        // Silently handle any errors during server logout
+      }
+    } catch (error) {
+      // Silently handle any unexpected errors
+    }
+  }
+  
+  // 2. Clear all client-side state
+  function clearClientState() {
+    console.log('[LOGOUT] Clearing client state');
+    
+    // Clear all authentication-related data from localStorage
+    const keysToRemove = [
+      'uid', 'uid_time', 'confirmed_uid', 'last_page',
+      'isAuthenticated', 'authToken', 'user', 'token', 'sessionid'
+    ];
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+    
+    // Get current cookies for debugging
+    const cookies = document.cookie.split(';');
+    console.log('[LOGOUT] Current cookies before clearing:', cookies);
+    
+    // Function to clear a cookie by name
+    const clearCookie = (name) => {
+      console.log(`[LOGOUT] Attempting to clear cookie: ${name}`);
+      const baseOptions = 'Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax';
+      // Try with current domain
+      document.cookie = `${name}=; ${baseOptions}`;
+      // Try with domain
+      document.cookie = `${name}=; ${baseOptions}; domain=${window.location.hostname}`;
+      // Try with leading dot for subdomains
+      document.cookie = `${name}=; ${baseOptions}; domain=.${window.location.hostname}`;
+    };
+    
+    // Clear all authentication-related cookies
+    const authCookies = [
+      'uid', 'authToken', 'isAuthenticated', 'sessionid', 'session_id',
+      'token', 'remember_token', 'auth', 'authentication'
+    ];
+    
+    // Clear specific auth cookies
+    authCookies.forEach(clearCookie);
+    
+    // Also clear any existing cookies that match our patterns
+    cookies.forEach(cookie => {
+      const [name] = cookie.trim().split('=');
+      if (name && authCookies.some(authName => name.trim() === authName)) {
+        clearCookie(name.trim());
+      }
+    });
+    
+    // Clear all cookies by setting them to expire in the past
+    document.cookie.split(';').forEach(cookie => {
+      const [name] = cookie.trim().split('=');
+      if (name) {
+        clearCookie(name.trim());
+      }
+    });
+    
+    console.log('[LOGOUT] Cookies after clearing:', document.cookie);
+    
+    // Update UI state
+    document.body.classList.remove('authenticated');
+    document.body.classList.add('guest');
+    
+    // Force a hard reload to ensure all state is reset
+    setTimeout(() => {
+      // Clear all storage again before redirecting
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+      
+      // Redirect to home with a cache-busting parameter
+      window.location.href = '/?logout=' + Date.now();
+    }, 100);
+  }
+  
   try {
-    console.log('[LOGOUT] Starting logout process');
+    // Clear client state immediately to prevent any race conditions
+    clearClientState();
     
-    // Clear user data from localStorage
-    localStorage.removeItem('uid');
-    localStorage.removeItem('uid_time');
-    localStorage.removeItem('confirmed_uid');
-    localStorage.removeItem('last_page');
-    
-    // Clear session cookie with SameSite attribute to match how it was set
-    const isLocalhost = window.location.hostname === 'localhost';
-    const secureFlag = !isLocalhost ? '; Secure' : '';
-    document.cookie = `sessionid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax${secureFlag};`;
-    
-    // Update UI state immediately
-    const userDashboard = document.getElementById('user-dashboard');
-    const guestDashboard = document.getElementById('guest-dashboard');
-    const logoutButton = document.getElementById('logout-button');
-    const deleteAccountButton = document.getElementById('delete-account-button');
-    
-    if (userDashboard) userDashboard.style.display = 'none';
-    if (guestDashboard) guestDashboard.style.display = 'block';
-    if (logoutButton) logoutButton.style.display = 'none';
-    if (deleteAccountButton) deleteAccountButton.style.display = 'none';
-    
-    // Show success message (only once)
-    if (window.showToast) {
-      showToast('Logged out successfully');
-    } else {
-      console.log('Logged out successfully');
+    // 2. Try to invalidate the server session (but don't block on it)
+    console.log('[LOGOUT] Auth token exists:', !!authToken);
+    if (authToken) {
+      try {
+        console.log('[LOGOUT] Attempting to invalidate server session');
+        
+        const response = await fetch('/api/logout', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+        });
+        
+        if (!response.ok && response.status !== 401) {
+          console.warn(`[LOGOUT] Server returned ${response.status} during logout`);
+          // Don't throw - we've already cleared client state
+        } else {
+          console.log('[LOGOUT] Server session invalidated successfully');
+        }
+      } catch (error) {
+        console.warn('[LOGOUT] Error during server session invalidation (non-critical):', error);
+        // Continue with logout process
+      }
     }
     
-    // Navigate to register page
-    if (window.showOnly) {
-      window.showOnly('register-page');
-    } else {
-      // Fallback to URL change if showOnly isn't available
-      window.location.href = '/#register-page';
+    // 3. Update navigation if the function exists
+    if (typeof injectNavigation === 'function') {
+      injectNavigation(false);
     }
     
     console.log('[LOGOUT] Logout completed');
@@ -72,6 +177,11 @@ async function handleLogout(event) {
     }
   } finally {
     isLoggingOut = false;
+    
+    // 4. Redirect to home page after a short delay to ensure state is cleared
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 100);
   }
 }
 
@@ -193,6 +303,15 @@ async function initDashboard() {
   const hasLocalStorageAuth = localStorage.getItem('isAuthenticated') === 'true';
   const hasAuthToken = localStorage.getItem('authToken') !== null;
   const isAuthenticated = hasAuthCookie || hasUidCookie || hasLocalStorageAuth || hasAuthToken;
+  
+  // Ensure body class reflects authentication state
+  if (isAuthenticated) {
+    document.body.classList.add('authenticated');
+    document.body.classList.remove('guest-mode');
+  } else {
+    document.body.classList.remove('authenticated');
+    document.body.classList.add('guest-mode');
+  }
   
   // Debug authentication state
   console.log('[AUTH] Authentication state:', {
@@ -485,52 +604,16 @@ async function initDashboard() {
   }
 }
 
-// Function to delete a file - only define if not already defined
-if (typeof window.deleteFile === 'undefined') {
-  window.deleteFile = async function(uid, fileName, listItem) {
-    if (!confirm(`Are you sure you want to delete "${fileName}"? This cannot be undone.`)) {
-      return;
-    }
+// Delete file function is defined below with more complete implementation
 
-    try {
-      console.log(`[FILES] Deleting file: ${fileName} for user: ${uid}`);
-      
-      const response = await fetch(`/delete-file/${uid}/${encodeURIComponent(fileName)}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      console.log('[FILES] Delete response:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[FILES] Delete error:', errorText);
-        showToast(`Error deleting file: ${response.statusText}`, 'error');
-        return;
-      }
-      
-      // Remove the file from the UI
-      if (listItem && listItem.parentNode) {
-        listItem.parentNode.removeChild(listItem);
-      }
-      
-      showToast('File deleted successfully', 'success');
-      
-      // If no files left, show "no files" message
-      const fileList = document.getElementById('file-list');
-      if (fileList && fileList.children.length === 0) {
-        fileList.innerHTML = '<li class="no-files">No files uploaded yet.</li>';
-      }
-      
-    } catch (error) {
-      console.error('[FILES] Error deleting file:', error);
-      showToast('Error deleting file. Please try again.', 'error');
-    }
-  }; // Close the function expression
-} // Close the if statement
+// Helper function to format file size
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
 
 // Function to fetch and display user's uploaded files
 async function fetchAndDisplayFiles(uid) {
@@ -560,8 +643,8 @@ async function fetchAndDisplayFiles(uid) {
   try {
     // The backend should handle authentication via session cookies
     // We include the auth token in headers if available, but don't rely on it for auth
-    console.log('[FILES] Making request to /me with credentials...');
-    const response = await fetch('/me', {
+    console.log(`[FILES] Making request to /me/${uid} with credentials...`);
+    const response = await fetch(`/me/${uid}`, {
       method: 'GET',
       credentials: 'include',  // Important: include cookies for session auth
       headers: headers
@@ -617,14 +700,29 @@ async function fetchAndDisplayFiles(uid) {
       // Clear the loading message
       fileList.innerHTML = '';
       
+      // Track displayed files to prevent duplicates using stored filenames as unique identifiers
+      const displayedFiles = new Set();
+      
       // Add each file to the list
-      files.forEach(fileName => {
-        const fileExt = fileName.split('.').pop().toLowerCase();
-        const fileUrl = `/data/${uid}/${encodeURIComponent(fileName)}`;
-        const fileSize = 'N/A'; // We don't have size info in the current API response
+      files.forEach(file => {
+        // Get the stored filename (with UUID) - this is our unique identifier
+        const storedFileName = file.stored_name || file.name || file;
+        
+        // Skip if we've already displayed this file
+        if (displayedFiles.has(storedFileName)) {
+          console.log(`[FILES] Skipping duplicate file with stored name: ${storedFileName}`);
+          return;
+        }
+        
+        displayedFiles.add(storedFileName);
+        
+        const fileExt = storedFileName.split('.').pop().toLowerCase();
+        const fileUrl = `/data/${uid}/${encodeURIComponent(storedFileName)}`;
+        const fileSize = file.size ? formatFileSize(file.size) : 'N/A';
         
         const listItem = document.createElement('li');
         listItem.className = 'file-item';
+        listItem.setAttribute('data-uid', uid);
         
         // Create file icon based on file extension
         let fileIcon = '📄'; // Default icon
@@ -636,11 +734,14 @@ async function fetchAndDisplayFiles(uid) {
           fileIcon = '📄';
         }
         
+        // Use original_name if available, otherwise use the stored filename for display
+        const displayName = file.original_name || storedFileName;
+        
         listItem.innerHTML = `
           <div class="file-info">
             <span class="file-icon">${fileIcon}</span>
             <a href="${fileUrl}" class="file-name" target="_blank" rel="noopener noreferrer">
-              ${fileName}
+              ${displayName}
             </a>
             <span class="file-size">${fileSize}</span>
           </div>
@@ -649,18 +750,15 @@ async function fetchAndDisplayFiles(uid) {
               <span class="button-icon">⬇️</span>
               <span class="button-text">Download</span>
             </a>
-            <button class="delete-button" data-filename="${fileName}">
+            <button class="delete-file" data-filename="${storedFileName}" data-original-name="${displayName}">
               <span class="button-icon">🗑️</span>
               <span class="button-text">Delete</span>
             </button>
           </div>
         `;
         
-        // Add delete button handler
-        const deleteButton = listItem.querySelector('.delete-button');
-        if (deleteButton) {
-          deleteButton.addEventListener('click', () => deleteFile(uid, fileName, listItem));
-        }
+        // Delete button handler will be handled by event delegation
+        // No need to add individual event listeners here
         
         fileList.appendChild(listItem);
       });
@@ -693,31 +791,75 @@ async function fetchAndDisplayFiles(uid) {
 }
 
 // Function to handle file deletion
-async function deleteFile(fileId, uid) {
-  if (!confirm('Are you sure you want to delete this file?')) {
+async function deleteFile(uid, fileName, listItem, displayName = '') {
+  const fileToDelete = displayName || fileName;
+  if (!confirm(`Are you sure you want to delete "${fileToDelete}"?`)) {
     return;
   }
   
+  // Show loading state
+  if (listItem) {
+    listItem.style.opacity = '0.6';
+    listItem.style.pointerEvents = 'none';
+    const deleteButton = listItem.querySelector('.delete-file');
+    if (deleteButton) {
+      deleteButton.disabled = true;
+      deleteButton.innerHTML = '<span class="button-icon">⏳</span><span class="button-text">Deleting...</span>';
+    }
+  }
+  
   try {
-    const response = await fetch(`/api/files/${fileId}`, {
+    if (!uid) {
+      throw new Error('User not authenticated. Please log in again.');
+    }
+    
+    console.log(`[DELETE] Attempting to delete file: ${fileName} for user: ${uid}`);
+    const authToken = localStorage.getItem('authToken');
+    const headers = { 'Content-Type': 'application/json' };
+    
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    
+    // Use the provided UID in the URL
+    const response = await fetch(`/uploads/${uid}/${encodeURIComponent(fileName)}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'same-origin'
+      headers: headers,
+      credentials: 'include'
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
     }
     
-    // Refresh the file list
-    fetchAndDisplayFiles(uid);
-    showToast('File deleted successfully');
+    // Remove the file from the UI immediately
+    if (listItem && listItem.parentNode) {
+      listItem.parentNode.removeChild(listItem);
+    }
     
+    // Show success message
+    showToast(`Successfully deleted "${fileToDelete}"`, 'success');
+    
+    // If the file list is now empty, show a message
+    const fileList = document.getElementById('file-list');
+    if (fileList && fileList.children.length === 0) {
+      fileList.innerHTML = '<li class="no-files">No files uploaded yet.</li>';
+    }
   } catch (error) {
-    console.error('[FILES] Error deleting file:', error);
-    showToast('Error deleting file', 'error');
+    console.error('[DELETE] Error deleting file:', error);
+    showToast(`Error deleting "${fileToDelete}": ${error.message}`, 'error');
+    
+    // Reset the button state if there was an error
+    if (listItem) {
+      listItem.style.opacity = '';
+      listItem.style.pointerEvents = '';
+      const deleteButton = listItem.querySelector('.delete-file');
+      if (deleteButton) {
+        deleteButton.disabled = false;
+        deleteButton.innerHTML = '🗑️';
+      }
+    }
   }
 }
 
@@ -775,7 +917,6 @@ function initFileUpload() {
       }
       
       const result = await response.json();
-      showToast('File uploaded successfully!');
       
       // Refresh file list
       if (window.fetchAndDisplayFiles) {
@@ -834,8 +975,33 @@ function initFileUpload() {
 // Main initialization when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize dashboard components
-  initDashboard();
-  initFileUpload();
+  initDashboard();  // initFileUpload is called from within initDashboard
+  
+  // Add event delegation for delete buttons
+  document.addEventListener('click', (e) => {
+    const deleteButton = e.target.closest('.delete-file');
+    if (!deleteButton) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const listItem = deleteButton.closest('.file-item');
+    if (!listItem) return;
+    
+    // Get UID from localStorage
+    const uid = localStorage.getItem('uid') || localStorage.getItem('confirmed_uid');
+    if (!uid) {
+      showToast('You need to be logged in to delete files', 'error');
+      console.error('[DELETE] No UID found in localStorage');
+      return;
+    }
+    
+    const fileName = deleteButton.getAttribute('data-filename');
+    const displayName = deleteButton.getAttribute('data-original-name') || fileName;
+    
+    // Pass the UID to deleteFile
+    deleteFile(uid, fileName, listItem, displayName);
+  });
   
   // Make fetchAndDisplayFiles available globally
   window.fetchAndDisplayFiles = fetchAndDisplayFiles;
@@ -874,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           if (res.ok) {
-            showToast('', 'success');
+            showToast('Check your email for a magic login link!', 'success');
             // Clear the form on success
             regForm.reset();
           } else {

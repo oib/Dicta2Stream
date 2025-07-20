@@ -36,11 +36,53 @@
     box-sizing: border-box;
   }
 
-  /* Mobile navigation */
-  #user-dashboard.dashboard-nav {
+  /* Mobile navigation - Enhanced with more specific selectors */
+  /* Show user dashboard only when authenticated */
+  body.authenticated #user-dashboard.dashboard-nav,
+  html body.authenticated #user-dashboard.dashboard-nav,
+  body.authenticated #user-dashboard.dashboard-nav:not(.hidden) {
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+    height: auto !important;
+    position: relative !important;
+    clip: auto !important;
+  }
+  
+  /* Hide guest dashboard when authenticated - with more specific selectors */
+  body.authenticated #guest-dashboard.dashboard-nav,
+  html body.authenticated #guest-dashboard.dashboard-nav,
+  body.authenticated #guest-dashboard.dashboard-nav:not(.visible) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    position: absolute !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+  }
+  
+  /* Show guest dashboard when not authenticated - with more specific selectors */
+  body:not(.authenticated) #guest-dashboard.dashboard-nav,
+  html body:not(.authenticated) #guest-dashboard.dashboard-nav,
+  body:not(.authenticated) #guest-dashboard.dashboard-nav:not(.hidden) {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    position: relative !important;
+  }
+  
+  /* Ensure user dashboard is hidden when not authenticated */
+  body:not(.authenticated) #user-dashboard.dashboard-nav {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
   }
   
   .dashboard-nav {

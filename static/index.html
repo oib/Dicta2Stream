@@ -72,6 +72,22 @@
           <li>Loading files...</li>
         </ul>
       </section>
+      
+      <!-- Account Deletion Section -->
+      <section id="account-deletion" class="article--bordered auth-only">
+        <h3>Account Deletion</h3>
+        <p>This action is irreversible and will permanently remove:</p>
+        <ul>
+          <li>Your account information</li>
+          <li>All uploaded audio files</li>
+        </ul>
+        
+        <div class="centered-container">
+          <button id="delete-account-from-privacy" class="button">
+            🗑️ Delete My Account
+          </button>
+        </div>
+      </section>
     </section>
 
     <div id="spinner" class="spinner"></div>
@@ -81,6 +97,11 @@
     <section id="terms-page" class="always-visible">
       <h2>Terms of Service</h2>
       <article class="article--bordered">
+        <div class="alert alert-warning">
+          <strong>Beta Testing Notice:</strong> This service is currently in public beta. As such, you may encounter bugs or unexpected behavior.
+          Updates to the service may cause data loss. Please report any issues or suggestions to help us improve.
+        </div>
+        
         <p>By accessing or using dicta2stream.net (the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the Service.</p>
         <ul>
           <li>You must be at least 18 years old to register.</li>
@@ -90,6 +111,8 @@
           <li>The associated email address will be banned from recreating an account.</li>
           <li>Uploads are limited to 100 MB and must be voice only.</li>
           <li>Music/singing will be rejected.</li>
+          <li>This is a beta service; data may be lost during updates or maintenance.</li>
+          <li>Please report any bugs or suggestions to help improve the service.</li>
         </ul>
       </article>
     </section>
@@ -103,28 +126,9 @@
           <li><strong>Users</strong>: Session uses both cookies and localStorage to store UID and authentication state.</li>
           <li><strong>Guests</strong>: No cookies are set. No persistent identifiers are stored.</li>
           <li>We log IP + UID only for abuse protection and quota enforcement.</li>
-          <li>Uploads are scanned via Whisper+Ollama but not stored as transcripts.</li>
           <li>Data is never sold.</li>
         </ul>
       </article>
-      
-      <!-- This section will be shown only to authenticated users -->
-      <div class="auth-only">
-        <section id="account-deletion" class="article--bordered">
-          <h3>Account Deletion</h3>
-          <p>You can delete your account and all associated data at any time. This action is irreversible and will permanently remove:</p>
-          <ul>
-            <li>Your account information</li>
-            <li>All uploaded audio files</li>
-          </ul>
-          
-          <div class="centered-container">
-            <button id="delete-account-from-privacy" class="button">
-              🗑️ Delete My Account
-            </button>
-          </div>
-        </section>
-      </div>
       
       <!-- Guest login message removed as per user request -->
     </section>
@@ -175,7 +179,6 @@
           <p><button type="submit">Login / Create Account</button></p>
         </form>
         <p class="form-note">You'll receive a magic login link via email. No password required.</p>
-        <p class="form-note session-note">Your session expires after 1 hour. Shareable links redirect to homepage.</p>
       </article>
     </section>
 
@@ -217,5 +220,7 @@
     }
   </script>
   <script type="module" src="/static/init-personal-stream.js"></script>
+  <!-- Temporary fix for mobile navigation -->
+  <script src="/static/fix-nav.js"></script>
 </body>
 </html>
