@@ -65,43 +65,52 @@ async def list_streams_sse(db):
         # Send initial ping
         yield ":ping\n\n"
         
-        # Query all public streams from the database
+        # Query all public streams from the database with required fields
         stmt = select(PublicStream).order_by(PublicStream.mtime.desc())
         result = db.execute(stmt)
         streams = result.scalars().all()
         
         if not streams:
+            print("No public streams found in the database")
             yield f"data: {json.dumps({'end': True})}\n\n"
             return
             
+        print(f"Found {len(streams)} public streams in the database")
+        
         # Send each stream as an SSE event
         for stream in streams:
             try:
+                # Ensure we have all required fields with fallbacks
                 stream_data = {
-                    'uid': stream.uid,
-                    'size': stream.size,
-                    'mtime': stream.mtime,
+                    'uid': stream.uid or '',
+                    'size': stream.storage_bytes or 0,
+                    'mtime': int(stream.mtime) if stream.mtime is not None else 0,
+                    'username': stream.username or stream.uid or '',
+                    'display_name': stream.display_name or stream.username or stream.uid or '',
                     'created_at': stream.created_at.isoformat() if stream.created_at else None,
                     'updated_at': stream.updated_at.isoformat() if stream.updated_at else None
                 }
+                print(f"Sending stream data: {stream_data}")
                 yield f"data: {json.dumps(stream_data)}\n\n"
                 # Small delay to prevent overwhelming the client
                 await asyncio.sleep(0.1)
             except Exception as e:
+                print(f"Error processing stream {stream.uid}: {str(e)}")
                 if os.getenv("DEBUG") == "1":
                     import traceback
                     traceback.print_exc()
                 continue
         
         # Send end of stream marker
+        print("Finished sending all streams")
         yield f"data: {json.dumps({'end': True})}\n\n"
         
     except Exception as e:
+        print(f"Error in list_streams_sse: {str(e)}")
         if os.getenv("DEBUG") == "1":
             import traceback
             traceback.print_exc()
         yield f"data: {json.dumps({'error': True, 'message': str(e)})}\n\n"
-        yield f"data: {json.dumps({'error': True, 'message': 'Stream generation failed'})}\n\n"
 
 def list_streams(db: Session = Depends(get_db)):
     """List all public streams from the database"""

@@ -31,8 +31,8 @@ export async function initMagicLogin() {
         const authToken = 'token-' + Math.random().toString(36).substring(2, 15);
         
         // Set cookies and localStorage for SPA session logic
-        document.cookie = `uid=${encodeURIComponent(confirmedUid)}; path=/`;
-        document.cookie = `authToken=${authToken}; path=/`;
+        document.cookie = `uid=${encodeURIComponent(confirmedUid)}; path=/; SameSite=Lax`;
+        document.cookie = `authToken=${authToken}; path=/; SameSite=Lax; Secure`;
         
         // Store in localStorage for client-side access
         localStorage.setItem('uid', confirmedUid);
@@ -53,8 +53,8 @@ export async function initMagicLogin() {
         const authToken = 'token-' + Math.random().toString(36).substring(2, 15);
         
         // Set cookies and localStorage for SPA session logic
-        document.cookie = `uid=${encodeURIComponent(data.confirmed_uid)}; path=/`;
-        document.cookie = `authToken=${authToken}; path=/`;
+        document.cookie = `uid=${encodeURIComponent(data.confirmed_uid)}; path=/; SameSite=Lax`;
+        document.cookie = `authToken=${authToken}; path=/; SameSite=Lax; Secure`;
         
         // Store in localStorage for client-side access
         localStorage.setItem('uid', data.confirmed_uid);

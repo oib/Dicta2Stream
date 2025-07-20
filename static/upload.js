@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const streamInfo = document.getElementById("stream-info");
   const streamUrlEl = document.getElementById("streamUrl");
-  const spinner = document.getElementById("spinner");
+  const spinner = document.getElementById("spinner") || { style: { display: 'none' } };
   let abortController;
 
   // Upload function
@@ -89,6 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
           if (window.fetchAndDisplayFiles) {
             await window.fetchAndDisplayFiles(uid);
           }
+          
+          // Refresh the stream list to update the last update time
+          if (window.refreshStreamList) {
+            await window.refreshStreamList();
+          }
         } catch (e) {
           console.error('Failed to refresh:', e);
         }
@@ -96,8 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       playBeep(432, 0.25, "sine");
     } else {
-      streamInfo.hidden = true;
-      spinner.style.display = "none";
+      if (streamInfo) streamInfo.hidden = true;
+      if (spinner) spinner.style.display = "none";
       if ((data.detail || data.error || "").includes("music")) {
         showToast("🎵 Upload rejected: singing or music detected.");
       } else {
@@ -190,10 +195,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const isRenamed = file.original_name && file.original_name !== file.name;
           return `
             <li class="file-item" data-filename="${file.name}">
-              <div class="file-name" title="${displayName}">
+              <div class="file-name" title="${isRenamed ? `Stored as: ${file.name}` : displayName}">
                 ${displayName}
-                ${isRenamed ? `<div class="stored-as" title="Stored as: ${file.name}">${file.name} <button class="delete-file" data-filename="${file.name}" title="Delete file">🗑️</button></div>` : 
-                  `<button class="delete-file" data-filename="${file.name}" title="Delete file">🗑️</button>`}
+                ${isRenamed ? `<div class="stored-as"><button class="delete-file" data-filename="${file.name}" data-original-name="${file.original_name}" title="Delete file">🗑️</button></div>` : 
+                  `<button class="delete-file" data-filename="${file.name}" data-original-name="${file.original_name}" title="Delete file">🗑️</button>`}
               </div>
               <span class="file-size">${sizeMB} MB</span>
             </li>
@@ -203,48 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fileList.innerHTML = '<li class="empty-message">No files uploaded yet</li>';
       }
       
-      // Add event listeners to delete buttons
-      document.querySelectorAll('.delete-file').forEach(button => {
-        button.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const filename = button.dataset.filename;
-          if (confirm(`Are you sure you want to delete ${filename}?`)) {
-            try {
-              // Get the auth token from the cookie
-              const token = document.cookie
-                .split('; ')
-                .find(row => row.startsWith('sessionid='))
-                ?.split('=')[1];
-              
-              if (!token) {
-                throw new Error('Not authenticated');
-              }
-              
-              const response = await fetch(`/delete/${filename}`, {
-                method: 'DELETE',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-              });
-              
-              if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || `Failed to delete file: ${response.statusText}`);
-              }
-              
-              // Refresh the file list
-              const uid = document.body.dataset.userUid;
-              if (uid) {
-                fetchAndDisplayFiles(uid);
-              }
-            } catch (error) {
-              console.error('Error deleting file:', error);
-              alert('Failed to delete file. Please try again.');
-            }
-          }
-        });
-      });
+      // Delete button handling is now managed by dashboard.js
       
       // Update quota display if available
       if (data.quota !== undefined) {

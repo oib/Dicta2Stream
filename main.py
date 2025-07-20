@@ -11,13 +11,14 @@ import traceback
 import shutil
 import mimetypes
 from typing import Optional
-from models import User, UploadLog
+from models import User, UploadLog, UserQuota, get_user_by_uid
 from sqlmodel import Session, select, SQLModel
 from database import get_db, engine
 from log import log_violation
 import secrets
 import time
 import json
+import subprocess
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -135,18 +136,46 @@ async def validation_exception_handler(request: FastAPIRequest, exc: RequestVali
 async def generic_exception_handler(request: FastAPIRequest, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 
+# Debug endpoint to list all routes
+@app.get("/debug/routes")
+async def list_routes():
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods) if hasattr(route, "methods") else [],
+                "name": route.name if hasattr(route, "name") else "",
+                "endpoint": str(route.endpoint) if hasattr(route, "endpoint") else "",
+                "router": str(route)  # Add router info for debugging
+            })
+    
+    # Sort routes by path for easier reading
+    routes.sort(key=lambda x: x["path"])
+    
+    # Also print to console for server logs
+    print("\n=== Registered Routes ===")
+    for route in routes:
+        print(f"{', '.join(route['methods']).ljust(20)} {route['path']}")
+    print("======================\n")
+    
+    return {"routes": routes}
+
 # include routers from submodules
 from register import router as register_router
 from magic import router as magic_router
 from upload import router as upload_router
 from streams import router as streams_router
 from list_user_files import router as list_user_files_router
+from auth_router import router as auth_router
 
 app.include_router(streams_router)
 
 from list_streams import router as list_streams_router
 from account_router import router as account_router
 
+# Include all routers
+app.include_router(auth_router)
 app.include_router(account_router)
 app.include_router(register_router)
 app.include_router(magic_router)
@@ -253,40 +282,134 @@ MAX_QUOTA_BYTES = 100 * 1024 * 1024
 # Delete account endpoint has been moved to account_router.py
 
 @app.delete("/uploads/{uid}/{filename}")
-def delete_file(uid: str, filename: str, request: Request, db: Session = Depends(get_db)):
-    user = get_user_by_uid(uid)
-    if not user:
-        raise HTTPException(status_code=403, detail="Invalid user ID")
-
-    ip = request.client.host
-    if user.ip != ip:
-        raise HTTPException(status_code=403, detail="Device/IP mismatch")
-
-    user_dir = os.path.join('data', user.username)
-    target_path = os.path.join(user_dir, filename)
-    # Prevent path traversal attacks
-    real_target_path = os.path.realpath(target_path)
-    real_user_dir = os.path.realpath(user_dir)
-    if not real_target_path.startswith(real_user_dir + os.sep):
-        raise HTTPException(status_code=403, detail="Invalid path")
-    if not os.path.isfile(real_target_path):
-        raise HTTPException(status_code=404, detail="File not found")
-
-    os.remove(real_target_path)
-    log_violation("DELETE", ip, uid, f"Deleted {filename}")
-    subprocess.run(["/root/scripts/refresh_user_playlist.sh", user.username])
-
+async def delete_file(uid: str, filename: str, request: Request, db: Session = Depends(get_db)):
+    """
+    Delete a file for a specific user.
+    
+    Args:
+        uid: The username of the user (used as UID in routes)
+        filename: The name of the file to delete
+        request: The incoming request object
+        db: Database session
+        
+    Returns:
+        Dict with status message
+    """
     try:
-        actual_bytes = int(subprocess.check_output(["du", "-sb", user_dir]).split()[0])
-        q = db.get(UserQuota, uid)
-        if q:
-            q.storage_bytes = actual_bytes
-            db.add(q)
-            db.commit()
-    except Exception as e:
-        log_violation("QUOTA", ip, uid, f"Quota update after delete failed: {e}")
+        # Get the user by username (which is used as UID in routes)
+        user = get_user_by_uid(uid)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-    return {"status": "deleted"}
+        # Get client IP and verify it matches the user's IP
+        ip = request.client.host
+        if user.ip != ip:
+            raise HTTPException(status_code=403, detail="Device/IP mismatch. Please log in again.")
+
+        # Set up user directory and validate paths
+        user_dir = os.path.join('data', user.username)
+        os.makedirs(user_dir, exist_ok=True)
+        
+        # Decode URL-encoded filename
+        from urllib.parse import unquote
+        filename = unquote(filename)
+        
+        # Construct and validate target path
+        target_path = os.path.join(user_dir, filename)
+        real_target_path = os.path.realpath(target_path)
+        real_user_dir = os.path.realpath(user_dir)
+        
+        # Security check: Ensure the target path is inside the user's directory
+        if not real_target_path.startswith(real_user_dir + os.sep):
+            raise HTTPException(status_code=403, detail="Invalid file path")
+            
+        # Check if file exists
+        if not os.path.isfile(real_target_path):
+            raise HTTPException(status_code=404, detail=f"File not found: {filename}")
+
+        # Delete both the target file and its UUID-only variant
+        deleted_files = []
+        try:
+            # First delete the requested file (with log ID prefix)
+            if os.path.exists(real_target_path):
+                os.remove(real_target_path)
+                deleted_files.append(filename)
+                log_violation("DELETE", ip, uid, f"Deleted {filename}")
+            
+            # Then try to find and delete the UUID-only variant (without log ID prefix)
+            if '_' in filename:  # If filename has a log ID prefix (e.g., "123_uuid.opus")
+                uuid_part = filename.split('_', 1)[1]  # Get the part after the first underscore
+                uuid_path = os.path.join(user_dir, uuid_part)
+                if os.path.exists(uuid_path):
+                    os.remove(uuid_path)
+                    deleted_files.append(uuid_part)
+                    log_violation("DELETE", ip, uid, f"Deleted UUID variant: {uuid_part}")
+            
+            file_deleted = len(deleted_files) > 0
+            
+            if not file_deleted:
+                log_violation("DELETE_WARNING", ip, uid, f"No files found to delete for: {filename}")
+                
+        except Exception as e:
+            log_violation("DELETE_ERROR", ip, uid, f"Error deleting file {filename}: {str(e)}")
+            file_deleted = False
+        
+        # Try to refresh the user's playlist, but don't fail if we can't
+        try:
+            subprocess.run(["/root/scripts/refresh_user_playlist.sh", user.username], 
+                         check=False, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        except Exception as e:
+            log_violation("PLAYLIST_REFRESH_WARNING", ip, uid, 
+                         f"Failed to refresh playlist: {str(e)}")
+
+        # Clean up the database record for this file
+        try:
+            # Find and delete the upload log entry
+            log_entry = db.exec(
+                select(UploadLog)
+                .where(UploadLog.uid == uid)
+                .where(UploadLog.processed_filename == filename)
+            ).first()
+            
+            if log_entry:
+                db.delete(log_entry)
+                db.commit()
+                log_violation("DB_CLEANUP", ip, uid, f"Removed DB record for {filename}")
+        except Exception as e:
+            log_violation("DB_CLEANUP_ERROR", ip, uid, f"Failed to clean up DB record: {str(e)}")
+            db.rollback()
+            
+        # Regenerate stream.opus after file deletion
+        try:
+            from concat_opus import concat_opus_files
+            from pathlib import Path
+            user_dir_path = Path(user_dir)
+            stream_path = user_dir_path / "stream.opus"
+            concat_opus_files(user_dir_path, stream_path)
+            log_violation("STREAM_UPDATE", ip, uid, "Regenerated stream.opus after file deletion")
+        except Exception as e:
+            log_violation("STREAM_UPDATE_ERROR", ip, uid, f"Failed to regenerate stream.opus: {str(e)}")
+        
+        # Update user quota in a separate try-except to not fail the entire operation
+        try:
+            # Use verify_and_fix_quota to ensure consistency between disk and DB
+            total_size = verify_and_fix_quota(db, user.username, user_dir)
+            log_violation("QUOTA_UPDATE", ip, uid, 
+                         f"Updated quota: {total_size} bytes")
+            
+        except Exception as e:
+            log_violation("QUOTA_ERROR", ip, uid, f"Quota update failed: {str(e)}")
+            db.rollback()
+        
+        return {"status": "deleted"}
+        
+    except Exception as e:
+        # Log the error and re-raise with a user-friendly message
+        error_detail = str(e)
+        log_violation("DELETE_ERROR", request.client.host, uid, f"Failed to delete {filename}: {error_detail}")
+        if not isinstance(e, HTTPException):
+            raise HTTPException(status_code=500, detail=f"Failed to delete file: {error_detail}")
+        raise
 
 @app.get("/confirm/{uid}")
 def confirm_user(uid: str, request: Request):
@@ -296,8 +419,55 @@ def confirm_user(uid: str, request: Request):
         raise HTTPException(status_code=403, detail="Unauthorized")
     return {"username": user.username, "email": user.email}
 
+def verify_and_fix_quota(db: Session, uid: str, user_dir: str) -> int:
+    """
+    Verify and fix the user's quota based on the size of stream.opus file.
+    Returns the size of stream.opus in bytes.
+    """
+    stream_opus_path = os.path.join(user_dir, 'stream.opus')
+    total_size = 0
+    
+    # Only consider stream.opus for quota
+    if os.path.isfile(stream_opus_path):
+        try:
+            total_size = os.path.getsize(stream_opus_path)
+            print(f"[QUOTA] Stream.opus size for {uid}: {total_size} bytes")
+        except (OSError, FileNotFoundError) as e:
+            print(f"[QUOTA] Error getting size for stream.opus: {e}")
+    else:
+        print(f"[QUOTA] stream.opus not found in {user_dir}")
+    
+    # Update quota in database
+    q = db.get(UserQuota, uid) or UserQuota(uid=uid, storage_bytes=0)
+    q.storage_bytes = total_size
+    db.add(q)
+    
+    # Clean up any database records for files that don't exist
+    uploads = db.exec(select(UploadLog).where(UploadLog.uid == uid)).all()
+    for upload in uploads:
+        if upload.processed_filename:  # Only check if processed_filename exists
+            stored_filename = f"{upload.id}_{upload.processed_filename}"
+            file_path = os.path.join(user_dir, stored_filename)
+            if not os.path.isfile(file_path):
+                print(f"[QUOTA] Removing orphaned DB record: {stored_filename}")
+                db.delete(upload)
+    
+    try:
+        db.commit()
+        print(f"[QUOTA] Updated quota for {uid}: {total_size} bytes")
+    except Exception as e:
+        print(f"[QUOTA] Error committing quota update: {e}")
+        db.rollback()
+        raise
+    
+    return total_size
+
 @app.get("/me/{uid}")
-def get_me(uid: str, request: Request, db: Session = Depends(get_db)):
+def get_me(uid: str, request: Request, response: Response, db: Session = Depends(get_db)):
+    # Add headers to prevent caching
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     print(f"[DEBUG] GET /me/{uid} - Client IP: {request.client.host}")
     try:
         # Get user info
@@ -315,6 +485,10 @@ def get_me(uid: str, request: Request, db: Session = Depends(get_db)):
                 if not debug_mode:
                     raise HTTPException(status_code=403, detail="IP address mismatch")
 
+        # Get user directory
+        user_dir = os.path.join('data', uid)
+        os.makedirs(user_dir, exist_ok=True)
+        
         # Get all upload logs for this user
         upload_logs = db.exec(
             select(UploadLog)
@@ -323,23 +497,54 @@ def get_me(uid: str, request: Request, db: Session = Depends(get_db)):
         ).all()
         print(f"[DEBUG] Found {len(upload_logs)} upload logs for UID {uid}")
         
-        # Build file list from database records
+        # Build file list from database records, checking if files exist on disk
         files = []
-        for log in upload_logs:
-            if log.filename and log.processed_filename:
-                # The actual filename on disk might have the log ID prepended
-                stored_filename = f"{log.id}_{log.processed_filename}"
-                files.append({
-                    "name": stored_filename,
-                    "original_name": log.filename,
-                    "size": log.size_bytes
-                })
-                print(f"[DEBUG] Added file from DB: {log.filename} (stored as {stored_filename}, {log.size_bytes} bytes)")
+        seen_files = set()  # Track seen files to avoid duplicates
         
-        # Get quota info
-        q = db.get(UserQuota, uid)
-        quota_mb = round(q.storage_bytes / (1024 * 1024), 2) if q else 0
-        print(f"[DEBUG] Quota for UID {uid}: {quota_mb} MB")
+        print(f"[DEBUG] Processing {len(upload_logs)} upload logs for UID {uid}")
+        
+        for i, log in enumerate(upload_logs):
+            if not log.filename or not log.processed_filename:
+                print(f"[DEBUG] Skipping log entry {i}: missing filename or processed_filename")
+                continue
+                
+            # The actual filename on disk has the log ID prepended
+            stored_filename = f"{log.id}_{log.processed_filename}"
+            file_path = os.path.join(user_dir, stored_filename)
+            
+            # Skip if we've already seen this file
+            if stored_filename in seen_files:
+                print(f"[DEBUG] Skipping duplicate file: {stored_filename}")
+                continue
+                
+            seen_files.add(stored_filename)
+            
+            # Only include the file if it exists on disk and is not stream.opus
+            if os.path.isfile(file_path) and stored_filename != 'stream.opus':
+                try:
+                    # Get the actual file size in case it changed
+                    file_size = os.path.getsize(file_path)
+                    file_info = {
+                        "name": stored_filename,
+                        "original_name": log.filename,
+                        "size": file_size
+                    }
+                    files.append(file_info)
+                    print(f"[DEBUG] Added file {len(files)}: {log.filename} (stored as {stored_filename}, {file_size} bytes)")
+                except OSError as e:
+                    print(f"[WARNING] Could not access file {stored_filename}: {e}")
+            else:
+                print(f"[DEBUG] File not found on disk or is stream.opus: {stored_filename}")
+        
+        # Log all files being returned
+        print("[DEBUG] All files being returned:")
+        for i, file_info in enumerate(files, 1):
+            print(f"  {i}. {file_info['name']} (original: {file_info['original_name']}, size: {file_info['size']} bytes)")
+        
+        # Verify and fix quota based on actual files on disk
+        total_size = verify_and_fix_quota(db, uid, user_dir)
+        quota_mb = round(total_size / (1024 * 1024), 2)
+        print(f"[DEBUG] Verified quota for UID {uid}: {quota_mb} MB")
 
         response_data = {
             "files": files,

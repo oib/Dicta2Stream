@@ -37,7 +37,7 @@ function handleMagicLoginRedirect() {
     localStorage.setItem('uid', username);
     localStorage.setItem('confirmed_uid', username);
     localStorage.setItem('uid_time', Date.now().toString());
-    document.cookie = `uid=${encodeURIComponent(username)}; path=/`;
+    document.cookie = `uid=${encodeURIComponent(username)}; path=/; SameSite=Lax`;
     
     // Update UI state
     document.body.classList.add('authenticated');
@@ -45,7 +45,7 @@ function handleMagicLoginRedirect() {
     
     // Update local storage and cookies
     localStorage.setItem('isAuthenticated', 'true');
-    document.cookie = `isAuthenticated=true; path=/`;
+    document.cookie = `isAuthenticated=true; path=/; SameSite=Lax`;
     
     // Update URL and history without reloading
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -677,25 +677,170 @@ trackedFunctions.forEach(fnName => {
   }
 });
 
+// Update the visibility of the account deletion section based on authentication state
+function updateAccountDeletionVisibility(isAuthenticated) {
+  console.log('[ACCOUNT-DELETION] updateAccountDeletionVisibility called with isAuthenticated:', isAuthenticated);
+  
+  // Find the account deletion section and its auth-only wrapper
+  const authOnlyWrapper = document.querySelector('#privacy-page .auth-only');
+  const accountDeletionSection = document.getElementById('account-deletion');
+  
+  console.log('[ACCOUNT-DELETION] Elements found:', { 
+    authOnlyWrapper: !!authOnlyWrapper, 
+    accountDeletionSection: !!accountDeletionSection 
+  });
+  
+  // Function to show an element with all necessary styles
+  const showElement = (element) => {
+    if (!element) return;
+    
+    console.log('[ACCOUNT-DELETION] Showing element:', element);
+    
+    // Remove any hiding classes
+    element.classList.remove('hidden', 'auth-only-hidden');
+    
+    // Set all possible visibility properties
+    element.style.display = 'block';
+    element.style.visibility = 'visible';
+    element.style.opacity = '1';
+    element.style.height = 'auto';
+    element.style.position = 'relative';
+    element.style.clip = 'auto';
+    element.style.overflow = 'visible';
+    
+    // Add a class to mark as visible
+    element.classList.add('account-visible');
+  };
+  
+  // Function to hide an element
+  const hideElement = (element) => {
+    if (!element) return;
+    
+    console.log('[ACCOUNT-DELETION] Hiding element:', element);
+    
+    // Set display to none to completely remove from layout
+    element.style.display = 'none';
+    
+    // Remove any visibility-related classes
+    element.classList.remove('account-visible');
+  };
+  
+  if (isAuthenticated) {
+    console.log('[ACCOUNT-DELETION] User is authenticated, checking if on privacy page');
+    
+      // Get the current page state - only show on #privacy-page
+    const currentHash = window.location.hash;
+    const isPrivacyPage = currentHash === '#privacy-page';
+    
+    console.log('[ACCOUNT-DELETION] Debug - Page State:', {
+      isAuthenticated,
+      currentHash,
+      isPrivacyPage,
+      documentTitle: document.title
+    });
+    
+    if (isAuthenticated && isPrivacyPage) {
+      console.log('[ACCOUNT-DELETION] On privacy page, showing account deletion section');
+      
+      // Show the auth wrapper and account deletion section
+      if (authOnlyWrapper) {
+        authOnlyWrapper.style.display = 'block';
+        authOnlyWrapper.style.visibility = 'visible';
+      }
+      
+      if (accountDeletionSection) {
+        accountDeletionSection.style.display = 'block';
+        accountDeletionSection.style.visibility = 'visible';
+      }
+    } else {
+      console.log('[ACCOUNT-DELETION] Not on privacy page, hiding account deletion section');
+      
+      // Hide the account deletion section
+      if (accountDeletionSection) {
+        accountDeletionSection.style.display = 'none';
+        accountDeletionSection.style.visibility = 'hidden';
+      }
+      
+      // Only hide the auth wrapper if we're not on the privacy page
+      if (authOnlyWrapper && !isPrivacyPage) {
+        authOnlyWrapper.style.display = 'none';
+        authOnlyWrapper.style.visibility = 'hidden';
+      }
+    }
+    
+    // Debug: Log the current state after updates
+    if (accountDeletionSection) {
+      console.log('[ACCOUNT-DELETION] Account deletion section state after show:', {
+        display: window.getComputedStyle(accountDeletionSection).display,
+        visibility: window.getComputedStyle(accountDeletionSection).visibility,
+        classes: accountDeletionSection.className,
+        parent: accountDeletionSection.parentElement ? {
+          tag: accountDeletionSection.parentElement.tagName,
+          classes: accountDeletionSection.parentElement.className,
+          display: window.getComputedStyle(accountDeletionSection.parentElement).display
+        } : 'no parent'
+      });
+    }
+    
+  } else {
+    console.log('[ACCOUNT-DELETION] User is not authenticated, hiding account deletion section');
+    
+    // Hide the account deletion section but keep the auth-only wrapper for other potential content
+    if (accountDeletionSection) {
+      hideElement(accountDeletionSection);
+    }
+    
+    // Only hide the auth-only wrapper if it doesn't contain other important content
+    if (authOnlyWrapper) {
+      const hasOtherContent = Array.from(authOnlyWrapper.children).some(
+        child => child.id !== 'account-deletion' && child.offsetParent !== null
+      );
+      
+      if (!hasOtherContent) {
+        hideElement(authOnlyWrapper);
+      }
+    }
+  }
+  
+  // Log final state for debugging
+  console.log('[ACCOUNT-DELETION] Final state:', {
+    authOnlyWrapper: authOnlyWrapper ? {
+      display: window.getComputedStyle(authOnlyWrapper).display,
+      visibility: window.getComputedStyle(authOnlyWrapper).visibility,
+      classes: authOnlyWrapper.className
+    } : 'not found',
+    accountDeletionSection: accountDeletionSection ? {
+      display: window.getComputedStyle(accountDeletionSection).display,
+      visibility: window.getComputedStyle(accountDeletionSection).visibility,
+      classes: accountDeletionSection.className,
+      parent: accountDeletionSection.parentElement ? {
+        tag: accountDeletionSection.parentElement.tagName,
+        classes: accountDeletionSection.parentElement.className,
+        display: window.getComputedStyle(accountDeletionSection.parentElement).display
+      } : 'no parent'
+    } : 'not found'
+  });
+}
+
 // Check authentication state and update UI
 function checkAuthState() {
+  // Debounce rapid calls
   const now = Date.now();
-  
-  // Throttle the checks
   if (now - lastAuthCheckTime < AUTH_CHECK_DEBOUNCE) {
-    return;
+    return wasAuthenticated === true;
   }
   lastAuthCheckTime = now;
-  
-  // Check various auth indicators
-  const hasAuthCookie = document.cookie.includes('sessionid=');
+  authCheckCounter++;
+
+  // Check various authentication indicators
+  const hasAuthCookie = document.cookie.includes('isAuthenticated=true');
   const hasUidCookie = document.cookie.includes('uid=');
   const hasLocalStorageAuth = localStorage.getItem('isAuthenticated') === 'true';
-  const hasAuthToken = localStorage.getItem('authToken') !== null;
+  const hasAuthToken = !!localStorage.getItem('authToken');
   
+  // User is considered authenticated if any of these are true
   const isAuthenticated = hasAuthCookie || hasUidCookie || hasLocalStorageAuth || hasAuthToken;
-  
-  // Only log if debug is enabled or if state has changed
+
   if (DEBUG_AUTH_STATE || isAuthenticated !== wasAuthenticated) {
     console.log('Auth State Check:', {
       hasAuthCookie,
@@ -729,6 +874,9 @@ function checkAuthState() {
       console.warn('injectNavigation function not found');
     }
     
+    // Update account deletion section visibility
+    updateAccountDeletionVisibility(isAuthenticated);
+    
     // Update the tracked state
     wasAuthenticated = isAuthenticated;
     
@@ -755,6 +903,12 @@ function setupAuthStatePolling() {
 }
 
 
+// Function to handle page navigation
+function handlePageNavigation() {
+  const isAuthenticated = checkAuthState();
+  updateAccountDeletionVisibility(isAuthenticated);
+}
+
 // Initialize the application when DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
   // Set up authentication state monitoring
@@ -766,6 +920,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize components
   initNavigation();
   
+  // Initialize account deletion section visibility
+  handlePageNavigation();
+  
+  // Listen for hash changes to update visibility when navigating
+  window.addEventListener('hashchange', handlePageNavigation);
   
   // Initialize profile player after a short delay
   setTimeout(() => {
@@ -861,32 +1020,96 @@ document.addEventListener("DOMContentLoaded", () => {
     const deleteAccountFromPrivacyBtn = document.getElementById('delete-account-from-privacy');
     
     const deleteAccount = async (e) => {
-      if (e) e.preventDefault();
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       
-      if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      if (!confirm('Are you sure you want to delete your account?\n\nThis action cannot be undone.')) {
         return;
       }
       
+      // Show loading state
+      const deleteBtn = e?.target.closest('button');
+      const originalText = deleteBtn?.textContent || 'Delete My Account';
+      if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'Deleting...';
+      }
+      
       try {
+        // Get UID from localStorage
+        const uid = localStorage.getItem('uid');
+        if (!uid) {
+          throw new Error('User not authenticated. Please log in again.');
+        }
+        
+        console.log('Sending delete account request for UID:', uid);
         const response = await fetch('/api/delete-account', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-          }
+          },
+          credentials: 'include',
+          body: JSON.stringify({ 
+            uid: uid // Include UID in the request body
+          })
         });
         
-        if (response.ok) {
-          // Clear local storage and redirect to home page
-          localStorage.clear();
-          window.location.href = '/';
-          } else {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to delete account');
-          }
-        } catch (error) {
-          console.error('Error deleting account:', error);
-          showToast(`❌ ${error.message || 'Failed to delete account'}`, 'error');
+        console.log('Received response status:', response.status, response.statusText);
+        
+        // Try to parse response as JSON, but handle non-JSON responses
+        let data;
+        const text = await response.text();
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          console.error('Failed to parse response as JSON:', parseError);
+          console.log('Raw response text:', text);
+          data = {};
         }
+        
+        if (response.ok) {
+          console.log('Account deletion successful');
+          showToast('✅ Account deleted successfully', 'success');
+          // Clear local storage and redirect to home page after a short delay
+          setTimeout(() => {
+            localStorage.clear();
+            window.location.href = '/';
+          }, 1000);
+        } else {
+          console.error('Delete account failed:', { status: response.status, data });
+          const errorMessage = data.detail || data.message || 
+                             data.error || 
+                             `Server returned ${response.status} ${response.statusText}`;
+          throw new Error(errorMessage);
+        }
+      } catch (error) {
+        console.error('Error in deleteAccount:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          error: error
+        });
+        
+        // Try to extract a meaningful error message
+        let errorMessage = 'Failed to delete account';
+        if (error instanceof Error) {
+          errorMessage = error.message || error.toString();
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (error && typeof error === 'object') {
+          errorMessage = error.message || JSON.stringify(error);
+        }
+        
+        showToast(`❌ ${errorMessage}`, 'error');
+      } finally {
+        // Restore button state
+        if (deleteBtn) {
+          deleteBtn.disabled = false;
+          deleteBtn.textContent = originalText;
+        }
+      }
       };
       
       // Add event listeners to both delete account buttons
@@ -902,22 +1125,49 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Logout function
-function logout() {
+async function logout(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  
+  // If handleLogout is available in dashboard.js, use it for comprehensive logout
+  if (typeof handleLogout === 'function') {
+    try {
+      await handleLogout(event);
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fall back to basic logout if handleLogout fails
+      basicLogout();
+    }
+  } else {
+    // Fallback to basic logout if handleLogout is not available
+    basicLogout();
+  }
+}
+
+// Basic client-side logout as fallback
+function basicLogout() {
   // Clear authentication state
   document.body.classList.remove('authenticated');
   localStorage.removeItem('isAuthenticated');
   localStorage.removeItem('uid');
   localStorage.removeItem('confirmed_uid');
   localStorage.removeItem('uid_time');
+  localStorage.removeItem('authToken');
   
-  // Clear cookies
-  document.cookie = 'isAuthenticated=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-  document.cookie = 'uid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  // Clear all cookies with proper SameSite attribute
+  document.cookie.split(';').forEach(cookie => {
+    const [name] = cookie.trim().split('=');
+    if (name) {
+      document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; domain=${window.location.hostname}; SameSite=Lax`;
+    }
+  });
   
   // Stop any playing audio
   stopMainAudio();
   
-  // Redirect to home page
+  // Force a hard redirect to ensure all state is cleared
   window.location.href = '/';
 }
 

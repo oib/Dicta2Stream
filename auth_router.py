@@ -1,13 +1,14 @@
 """Authentication routes for dicta2stream"""
 from fastapi import APIRouter, Depends, Request, Response, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlmodel import Session
+from sqlmodel import Session, select
+from datetime import datetime
 
 from models import Session as DBSession, User
 from database import get_db
 from auth import get_current_user
 
-router = APIRouter()
+router = APIRouter(prefix="/api", tags=["auth"])
 security = HTTPBearer()
 
 @router.post("/logout")
@@ -18,30 +19,61 @@ async def logout(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """Log out by invalidating the current session"""
-    token = credentials.credentials
-    
-    # Find and invalidate the session
-    session = db.exec(
-        select(DBSession)
-        .where(DBSession.token == token)
-        .where(DBSession.is_active == True)  # noqa: E712
-    ).first()
-    
-    if session:
-        session.is_active = False
-        db.add(session)
-        db.commit()
-    
-    # Clear the session cookie
-    response.delete_cookie(
-        key="sessionid",  # Must match the cookie name in main.py
-        httponly=True,
-        secure=True,  # Must match the cookie settings from login
-        samesite="lax",
-        path="/"
-    )
-    
-    return {"message": "Successfully logged out"}
+    try:
+        # Get the token from the Authorization header
+        token = credentials.credentials if credentials else None
+        
+        if not token:
+            return {"message": "No session to invalidate"}
+        
+        try:
+            # Find and invalidate the session
+            session = db.exec(
+                select(DBSession)
+                .where(DBSession.token == token)
+                .where(DBSession.is_active == True)  # noqa: E712
+            ).first()
+            
+            if session:
+                try:
+                    session.is_active = False
+                    db.add(session)
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    
+        except Exception:
+            # Continue with logout even if session lookup fails
+            pass
+        
+        # Clear the session cookie
+        response.delete_cookie(
+            key="sessionid",
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/"
+        )
+        
+        # Clear any other auth-related cookies
+        for cookie_name in ["uid", "authToken", "isAuthenticated", "token"]:
+            response.delete_cookie(
+                key=cookie_name,
+                path="/",
+                domain=request.url.hostname,
+                secure=True,
+                httponly=True,
+                samesite="lax"
+            )
+        
+        return {"message": "Successfully logged out"}
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception:
+        # Don't expose internal errors to the client
+        return {"message": "Logout processed"}
 
 
 @router.get("/me")

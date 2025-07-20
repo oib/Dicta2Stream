@@ -9,6 +9,7 @@ class User(SQLModel, table=True):
     token_created: datetime = Field(default_factory=datetime.utcnow)
     email: str = Field(primary_key=True)
     username: str = Field(unique=True, index=True)
+    display_name: str = Field(default="", nullable=True)
     token: str
     confirmed: bool = False
     ip: str = Field(default="")
@@ -43,17 +44,40 @@ class DBSession(SQLModel, table=True):
 class PublicStream(SQLModel, table=True):
     """Stores public stream metadata for all users"""
     uid: str = Field(primary_key=True)
-    size: int = 0
+    username: Optional[str] = Field(default=None, index=True)
+    display_name: Optional[str] = Field(default=None)
+    storage_bytes: int = 0
     mtime: int = Field(default_factory=lambda: int(datetime.utcnow().timestamp()))
+    last_updated: Optional[datetime] = Field(default_factory=datetime.utcnow)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 def get_user_by_uid(uid: str) -> Optional[User]:
+    """
+    Retrieve a user by their UID (username).
+    
+    Note: In this application, the User model uses email as primary key,
+    but we're using username as UID for API routes. This function looks up
+    users by username.
+    
+    Args:
+        uid: The username to look up
+        
+    Returns:
+        User object if found, None otherwise
+    """
     with Session(engine) as session:
+        # First try to find by username (which is what we're using as UID)
         statement = select(User).where(User.username == uid)
-        result = session.exec(statement).first()
-        return result
+        user = session.exec(statement).first()
+        
+        # If not found by username, try by email (for backward compatibility)
+        if not user and '@' in uid:
+            statement = select(User).where(User.email == uid)
+            user = session.exec(statement).first()
+            
+        return user
 
 
 def verify_session(db: Session, token: str) -> DBSession:

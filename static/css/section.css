@@ -36,16 +36,78 @@ body.authenticated .auth-only {
 #me-page:not([hidden]) > .auth-only,
 #me-page:not([hidden]) > section,
 #me-page:not([hidden]) > article,
-#me-page:not([hidden]) > div,
-/* Ensure account deletion section is visible when privacy page is active and user is authenticated */
-#privacy-page:not([hidden]) .auth-only,
-#privacy-page:not([hidden]) #account-deletion {
+#me-page:not([hidden]) > div {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
-body.authenticated .guest-only { 
+/* Show auth-only elements when authenticated */
+body.authenticated .auth-only {
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* Account deletion section - improved width and formatting */
+#account-deletion {
+  margin: 2.5rem auto;
+  padding: 2.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+  max-width: 600px;
+  line-height: 1.6;
+  color: var(--text-color);
+}
+
+#account-deletion h3 {
+  color: var(--color-primary);
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+#account-deletion p {
+  color: var(--color-text);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+#account-deletion ul {
+  margin: 1rem 0 1.5rem 1.5rem;
+  padding: 0;
+  color: var(--color-text);
+}
+
+#account-deletion .centered-container {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+#delete-account-from-privacy {
+  background-color: #ff4d4f;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#delete-account-from-privacy:hover {
+  background-color: #ff6b6b;
+  text-decoration: none;
+}
+
+/* Hide guest-only elements when authenticated */
+body.authenticated .guest-only {
+  display: none !important;
+  visibility: hidden !important;
   display: none;
 }
 

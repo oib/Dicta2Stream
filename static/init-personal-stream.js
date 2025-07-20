@@ -3,19 +3,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // Function to update the play button with UID
   function updatePersonalStreamPlayButton() {
     const playButton = document.querySelector('#me-page .play-pause-btn');
-    if (!playButton) return;
+    const streamPlayer = document.querySelector('#me-page .stream-player');
+    
+    if (!playButton || !streamPlayer) return;
     
     // Get UID from localStorage or cookie
     const uid = localStorage.getItem('uid') || getCookie('uid');
     
     if (uid) {
-      // Set the data-uid attribute if not already set
+      // Show the player and set the UID if not already set
+      streamPlayer.style.display = 'block';
       if (!playButton.dataset.uid) {
         playButton.dataset.uid = uid;
-        console.log('[personal-stream] Set UID for personal stream play button:', uid);
       }
     } else {
-      console.warn('[personal-stream] No UID found for personal stream play button');
+      // Hide the player for guests
+      streamPlayer.style.display = 'none';
     }
   }
 
