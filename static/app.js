@@ -505,10 +505,15 @@ window.clearTimeout = (id) => {
   originalClearTimeout(id);
 };
 
-// Track auth check calls
+// Track auth check calls and cache state
 let lastAuthCheckTime = 0;
 let authCheckCounter = 0;
 const AUTH_CHECK_DEBOUNCE = 1000; // 1 second
+let authStateCache = {
+  timestamp: 0,
+  value: null,
+  ttl: 5000 // Cache TTL in milliseconds
+};
 
 // Override console.log to capture all logs
 const originalConsoleLog = console.log;
@@ -822,33 +827,46 @@ function updateAccountDeletionVisibility(isAuthenticated) {
   });
 }
 
-// Check authentication state and update UI
-function checkAuthState() {
-  // Debounce rapid calls
+// Check authentication state and update UI with caching and debouncing
+function checkAuthState(force = false) {
   const now = Date.now();
-  if (now - lastAuthCheckTime < AUTH_CHECK_DEBOUNCE) {
+  
+  // Return cached value if still valid and not forcing a refresh
+  if (!force && now - authStateCache.timestamp < authStateCache.ttl && authStateCache.value !== null) {
+    return authStateCache.value;
+  }
+  
+  // Debounce rapid calls
+  if (now - lastAuthCheckTime < AUTH_CHECK_DEBOUNCE && !force) {
     return wasAuthenticated === true;
   }
+  
   lastAuthCheckTime = now;
   authCheckCounter++;
-
-  // Check various authentication indicators
-  const hasAuthCookie = document.cookie.includes('isAuthenticated=true');
-  const hasUidCookie = document.cookie.includes('uid=');
-  const hasLocalStorageAuth = localStorage.getItem('isAuthenticated') === 'true';
-  const hasAuthToken = !!localStorage.getItem('authToken');
   
-  // User is considered authenticated if any of these are true
-  const isAuthenticated = hasAuthCookie || hasUidCookie || hasLocalStorageAuth || hasAuthToken;
+  // Use a single check for authentication state
+  let isAuthenticated = false;
+  
+  // Check the most likely indicators first for better performance
+  isAuthenticated = 
+    document.cookie.includes('isAuthenticated=') ||
+    document.cookie.includes('uid=') ||
+    localStorage.getItem('isAuthenticated') === 'true' ||
+    !!localStorage.getItem('authToken');
+    
+  // Update cache
+  authStateCache = {
+    timestamp: now,
+    value: isAuthenticated,
+    ttl: isAuthenticated ? 30000 : 5000 // Longer TTL for authenticated users
+  };
 
-  if (DEBUG_AUTH_STATE || isAuthenticated !== wasAuthenticated) {
+  if (DEBUG_AUTH_STATE && isAuthenticated !== wasAuthenticated) {
     console.log('Auth State Check:', {
-      hasAuthCookie,
-      hasUidCookie,
-      hasLocalStorageAuth,
-      hasAuthToken,
       isAuthenticated,
-      wasAuthenticated
+      wasAuthenticated,
+      cacheHit: !force && now - authStateCache.timestamp < authStateCache.ttl,
+      cacheAge: now - authStateCache.timestamp
     });
   }
   
@@ -887,19 +905,44 @@ function checkAuthState() {
   return isAuthenticated;
 }
 
-// Periodically check authentication state
+// Periodically check authentication state with optimized polling
 function setupAuthStatePolling() {
-  // Initial check
-  checkAuthState();
+  // Initial check with force to ensure we get the latest state
+  checkAuthState(true);
   
-  // Check every 30 seconds instead of 2 to reduce load
-  setInterval(checkAuthState, 30000);
+  // Use a single interval for all checks
+  const checkAndUpdate = () => {
+    // Only force check if the page is visible
+    checkAuthState(!document.hidden);
+  };
   
-  // Also check after certain events that might affect auth state
-  window.addEventListener('storage', checkAuthState);
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) checkAuthState();
-  });
+  // Check every 30 seconds (reduced from previous implementation)
+  const AUTH_CHECK_INTERVAL = 30000;
+  setInterval(checkAndUpdate, AUTH_CHECK_INTERVAL);
+  
+  // Listen for storage events (like login/logout from other tabs)
+  const handleStorageEvent = (e) => {
+    if (['isAuthenticated', 'authToken', 'uid'].includes(e.key)) {
+      checkAuthState(true); // Force check on relevant storage changes
+    }
+  };
+  
+  window.addEventListener('storage', handleStorageEvent);
+  
+  // Check auth state when page becomes visible
+  const handleVisibilityChange = () => {
+    if (!document.hidden) {
+      checkAuthState(true);
+    }
+  };
+  
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  // Cleanup function
+  return () => {
+    window.removeEventListener('storage', handleStorageEvent);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
 }
 
 

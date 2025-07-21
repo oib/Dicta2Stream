@@ -258,8 +258,15 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const target = link.dataset.target;
       if (target) {
-        // Show the target section without updating URL hash
-        showSection(target);
+        // Update URL hash to maintain proper history state
+        window.location.hash = target;
+        // Use the router to handle the navigation
+        if (router && typeof router.showOnly === 'function') {
+          router.showOnly(target);
+        } else {
+          // Fallback to showSection if router is not available
+          showSection(target);
+        }
       }
     });
   });

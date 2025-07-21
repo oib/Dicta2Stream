@@ -1,50 +1,69 @@
-// Force hide guest navigation for authenticated users
-function fixMobileNavigation() {
-  console.log('[FIX-NAV] Running navigation fix...');
+// Debounce helper function
+function debounce(func, wait) {
+  let timeout;
+  return function() {
+    const context = this;
+    const args = arguments;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(context, args), wait);
+  };
+}
+
+// Throttle helper function
+function throttle(func, limit) {
+  let inThrottle;
+  return function() {
+    const args = arguments;
+    const context = this;
+    if (!inThrottle) {
+      func.apply(context, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
+}
+
+// Check authentication state once and cache it
+function getAuthState() {
+  return (
+    document.cookie.includes('isAuthenticated=') ||
+    document.cookie.includes('uid=') ||
+    localStorage.getItem('isAuthenticated') === 'true' ||
+    !!localStorage.getItem('authToken')
+  );
+}
+
+// Update navigation based on authentication state
+function updateNavigation() {
+  const isAuthenticated = getAuthState();
   
-  // Check if user is authenticated
-  const hasAuthCookie = document.cookie.includes('isAuthenticated=true');
-  const hasUidCookie = document.cookie.includes('uid=');
-  const hasLocalStorageAuth = localStorage.getItem('isAuthenticated') === 'true';
-  const hasAuthToken = localStorage.getItem('authToken') !== null;
-  const isAuthenticated = hasAuthCookie || hasUidCookie || hasLocalStorageAuth || hasAuthToken;
-  
-  console.log('[FIX-NAV] Authentication state:', { 
-    isAuthenticated,
-    hasAuthCookie,
-    hasUidCookie,
-    hasLocalStorageAuth,
-    hasAuthToken
-  });
+  // Only proceed if the authentication state has changed
+  if (isAuthenticated === updateNavigation.lastState) {
+    return;
+  }
+  updateNavigation.lastState = isAuthenticated;
   
   if (isAuthenticated) {
-    // Force hide guest navigation with !important styles
+    // Hide guest navigation for authenticated users
     const guestNav = document.getElementById('guest-dashboard');
     if (guestNav) {
-      console.log('[FIX-NAV] Hiding guest navigation');
       guestNav.style.cssText = `
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;
         height: 0 !important;
-        width: 0 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        border: none !important;
-        position: absolute !important;
         overflow: hidden !important;
+        position: absolute !important;
         clip: rect(0, 0, 0, 0) !important;
         pointer-events: none !important;
       `;
-      guestNav.classList.add('force-hidden');
     }
     
-    // Ensure user navigation is visible with !important styles
+    // Show user navigation if it exists
     const userNav = document.getElementById('user-dashboard');
     if (userNav) {
-      console.log('[FIX-NAV] Showing user navigation');
       userNav.style.cssText = `
-        display: flex !important;
+        display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
         height: auto !important;
@@ -55,25 +74,9 @@ function fixMobileNavigation() {
       userNav.classList.add('force-visible');
     }
     
-    // Add authenticated class to body
+    // Update body classes
     document.body.classList.add('authenticated');
     document.body.classList.remove('guest-mode');
-    
-    // Prevent default behavior of nav links that might cause page reloads
-    document.querySelectorAll('a[href^="#"]').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const targetId = link.getAttribute('href');
-        if (targetId && targetId !== '#') {
-          // Use history API to update URL without full page reload
-          history.pushState(null, '', targetId);
-          // Dispatch a custom event that other scripts can listen for
-          window.dispatchEvent(new CustomEvent('hashchange'));
-          // Force re-apply our navigation fix
-          setTimeout(fixMobileNavigation, 0);
-        }
-      });
-    });
   } else {
     // User is not authenticated - ensure guest nav is visible
     const guestNav = document.getElementById('guest-dashboard');
@@ -85,50 +88,53 @@ function fixMobileNavigation() {
   }
 }
 
-// Run on page load
-document.addEventListener('DOMContentLoaded', fixMobileNavigation);
+// Initialize the navigation state
+updateNavigation.lastState = null;
 
-// Also run after a short delay to catch any dynamic content
-setTimeout(fixMobileNavigation, 100);
-setTimeout(fixMobileNavigation, 300);
-setTimeout(fixMobileNavigation, 1000);
-
-// Listen for hash changes (navigation)
-window.addEventListener('hashchange', fixMobileNavigation);
-
-// Listen for pushState/replaceState (SPA navigation)
-const originalPushState = history.pushState;
-const originalReplaceState = history.replaceState;
-
-history.pushState = function() {
-  originalPushState.apply(this, arguments);
-  setTimeout(fixMobileNavigation, 0);
-};
-
-history.replaceState = function() {
-  originalReplaceState.apply(this, arguments);
-  setTimeout(fixMobileNavigation, 0);
-};
-
-// Run on any DOM mutations (for dynamically loaded content)
-const observer = new MutationObserver((mutations) => {
-  let shouldFix = false;
-  mutations.forEach((mutation) => {
-    if (mutation.addedNodes.length || mutation.removedNodes.length) {
-      shouldFix = true;
-    }
-  });
-  if (shouldFix) {
-    setTimeout(fixMobileNavigation, 0);
+// Handle navigation link clicks
+function handleNavLinkClick(e) {
+  const link = e.target.closest('a[href^="#"]');
+  if (!link) return;
+  
+  e.preventDefault();
+  const targetId = link.getAttribute('href');
+  if (targetId && targetId !== '#') {
+    // Update URL without triggering full page reload
+    history.pushState(null, '', targetId);
+    // Dispatch a custom event for other scripts
+    window.dispatchEvent(new CustomEvent('hashchange'));
   }
-});
+}
 
-observer.observe(document.body, {
-  childList: true,
-  subtree: true,
-  attributes: true,
-  attributeFilter: ['class', 'style', 'id']
-});
+// Initialize the navigation system
+function initNavigation() {
+  // Set up event delegation for navigation links
+  document.body.addEventListener('click', handleNavLinkClick);
+  
+  // Listen for hash changes (throttled)
+  window.addEventListener('hashchange', throttle(updateNavigation, 100));
+  
+  // Listen for storage changes (like login/logout from other tabs)
+  window.addEventListener('storage', debounce(updateNavigation, 100));
+  
+  // Check for authentication changes periodically (every 30 seconds)
+  setInterval(updateNavigation, 30000);
+  
+  // Initial update
+  updateNavigation();
+}
 
-// Export for debugging
-window.fixMobileNavigation = fixMobileNavigation;
+// Run initialization when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initNavigation);
+} else {
+  // DOMContentLoaded has already fired
+  initNavigation();
+}
+
+// Export for testing if needed
+window.navigationUtils = {
+  updateNavigation,
+  getAuthState,
+  initNavigation
+};
