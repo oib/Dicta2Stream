@@ -18,7 +18,7 @@ def run_migrations():
     
     # Set up Alembic config
     alembic_cfg = Config()
-    alembic_cfg.set_main_option("script_location", "migrations")
+    alembic_cfg.set_main_option("script_location", "dev/migrations")
     alembic_cfg.set_main_option("sqlalchemy.url", database_url)
     
     # Run migrations
