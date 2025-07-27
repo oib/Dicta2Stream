@@ -3,6 +3,7 @@
 import { playBeep } from "./sound.js";
 import { showToast } from "./toast.js";
 import { injectNavigation } from "./inject-nav.js";
+import { globalAudioManager } from './global-audio-manager.js';
 
 // Global audio state
 let globalAudio = null;
@@ -963,6 +964,19 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize components
   initNavigation();
   
+  // Register with global audio manager to handle stop requests from other players
+  globalAudioManager.addListener('personal', () => {
+    console.log('[app.js] Received stop request from global audio manager');
+    const audio = getOrCreateAudioElement();
+    if (audio && !audio.paused) {
+      audio.pause();
+      const playButton = document.querySelector('.play-pause-btn');
+      if (playButton) {
+        updatePlayPauseButton(audio, playButton);
+      }
+    }
+  });
+  
   // Initialize account deletion section visibility
   handlePageNavigation();
   
@@ -1011,6 +1025,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
 
+          // Notify global audio manager that personal player is starting
+          const uid = localStorage.getItem('uid') || 'personal-stream';
+          globalAudioManager.startPlayback('personal', uid);
+          
           // Store the current play promise to handle aborts
           const playPromise = audio.play();
           
@@ -1046,6 +1064,10 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         } else {
           audio.pause();
+          
+          // Notify global audio manager that personal player has stopped
+          globalAudioManager.stopPlayback('personal');
+          
           if (window.currentlyPlayingAudio === audio) {
             window.currentlyPlayingAudio = null;
             window.currentlyPlayingButton = null;

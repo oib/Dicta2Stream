@@ -1,5 +1,6 @@
 // static/streams-ui.js — public streams loader and profile-link handling
 import { showOnly } from './router.js';
+import { globalAudioManager } from './global-audio-manager.js';
 
 // Global variable to track if we should force refresh the stream list
 let shouldForceRefresh = false;
@@ -24,6 +25,12 @@ export function initStreamsUI() {
   });
   document.addEventListener('visibilitychange', maybeLoadStreamsOnShow);
   maybeLoadStreamsOnShow();
+  
+  // Register with global audio manager to handle stop requests from other players
+  globalAudioManager.addListener('streams', () => {
+    console.log('[streams-ui] Received stop request from global audio manager');
+    stopPlayback();
+  });
 }
 
 function maybeLoadStreamsOnShow() {
@@ -539,6 +546,9 @@ function stopPlayback() {
   pauseTime = 0;
   audioStartTime = 0;
   
+  // Notify global audio manager that streams player has stopped
+  globalAudioManager.stopPlayback('streams');
+  
   // Update UI
   if (currentlyPlayingButton) {
     updatePlayPauseButton(currentlyPlayingButton, false);
@@ -565,6 +575,9 @@ async function loadAndPlayAudio(uid, playPauseBtn) {
   
   // Stop any current playback
   stopPlayback();
+  
+  // Notify global audio manager that streams player is starting
+  globalAudioManager.startPlayback('streams', uid);
   
   // Update UI
   updatePlayPauseButton(playPauseBtn, true);
