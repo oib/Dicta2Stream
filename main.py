@@ -92,7 +92,20 @@ from range_response import range_response
 @app.get("/audio/{uid}/{filename}")
 def get_audio(uid: str, filename: str, request: Request, db: Session = Depends(get_db)):
     # Allow public access ONLY to stream.opus
-    user_dir = os.path.join("data", uid)
+    
+    # Map email-based UID to username for file system access
+    # If UID contains @, it's an email - look up the corresponding username
+    if '@' in uid:
+        from models import User
+        user = db.exec(select(User).where(User.email == uid)).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        filesystem_uid = user.username
+    else:
+        # Legacy support for username-based UIDs
+        filesystem_uid = uid
+    
+    user_dir = os.path.join("data", filesystem_uid)
     file_path = os.path.join(user_dir, filename)
     real_user_dir = os.path.realpath(user_dir)
     real_file_path = os.path.realpath(file_path)

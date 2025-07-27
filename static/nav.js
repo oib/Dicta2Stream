@@ -343,9 +343,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const ul = document.getElementById("stream-list");
     if (!ul) return;
     if (streams.length) {
-      streams.sort();
-      ul.innerHTML = streams.map(uid => `
-        <li><a href="/?profile=${encodeURIComponent(uid)}" class="profile-link">▶ ${uid}</a></li>
+      // Handle both array of UIDs (legacy) and array of stream objects (new)
+      const streamItems = streams.map(item => {
+        if (typeof item === 'string') {
+          // Legacy: array of UIDs
+          return { uid: item, username: item };
+        } else {
+          // New: array of stream objects
+          return {
+            uid: item.uid || '',
+            username: item.username || 'Unknown User'
+          };
+        }
+      });
+      
+      streamItems.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
+      ul.innerHTML = streamItems.map(stream => `
+        <li><a href="/?profile=${encodeURIComponent(stream.uid)}" class="profile-link">▶ ${stream.username}</a></li>
       `).join("");
     } else {
       ul.innerHTML = "<li>No active streams.</li>";

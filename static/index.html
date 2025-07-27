@@ -21,7 +21,7 @@
     }
   </style>
   <link rel="modulepreload" href="/static/sound.js" />
-  <script src="/static/streams-ui.js" type="module"></script>
+  <script src="/static/streams-ui.js?v=3" type="module"></script>
   <script src="/static/app.js" type="module"></script>
 </head>
 <body>
@@ -196,11 +196,11 @@
   <script type="module" src="/static/dashboard.js"></script>
   <script type="module" src="/static/app.js"></script>
   <!-- Load public streams UI logic -->
-  <script type="module" src="/static/streams-ui.js"></script>
+  <script type="module" src="/static/streams-ui.js?v=3"></script>
   <!-- Load upload functionality -->
   <script type="module" src="/static/upload.js"></script>
   <script type="module">
-    import "/static/nav.js";
+    import "/static/nav.js?v=2";
     window.addEventListener("pageshow", () => {
       const dz = document.querySelector("#user-upload-area");
       if (dz) dz.classList.remove("uploading");

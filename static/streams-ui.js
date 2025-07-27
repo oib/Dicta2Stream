@@ -314,6 +314,7 @@ function loadAndRenderStreams() {
       // Render each stream in sorted order
       streams.forEach((stream, index) => {
         const uid = stream.uid || `stream-${index}`;
+        const username = stream.username || 'Unknown User';
         const sizeMb = stream.size ? (stream.size / (1024 * 1024)).toFixed(1) : '?';
         const mtime = stream.mtime ? new Date(stream.mtime * 1000).toISOString().split('T')[0].replace(/-/g, '/') : '';
         
@@ -323,7 +324,7 @@ function loadAndRenderStreams() {
         try {
           li.innerHTML = `
             <article class="stream-player" data-uid="${escapeHtml(uid)}">
-              <h3>${escapeHtml(uid)}</h3>
+              <h3>${escapeHtml(username)}</h3>
               <div class="audio-controls">
                 <button class="play-pause-btn" data-uid="${escapeHtml(uid)}" aria-label="Play">▶️</button>
               </div>
@@ -397,9 +398,10 @@ export function renderStreamList(streams) {
       ul.innerHTML = streams
         .map(stream => {
           const uid = stream.uid || '';
+          const username = stream.username || 'Unknown User';
           const sizeKb = stream.size ? (stream.size / 1024).toFixed(1) : '?';
           const mtime = stream.mtime ? new Date(stream.mtime * 1000).toLocaleString() : '';
-          return `<li><a href="/?profile=${encodeURIComponent(uid)}" class="profile-link">▶ ${uid}</a> <span style='color:var(--text-muted);font-size:90%'>[${sizeKb} KB, ${mtime}]</span></li>`;
+          return `<li><a href="/?profile=${encodeURIComponent(uid)}" class="profile-link">▶ ${escapeHtml(username)}</a> <span style='color:var(--text-muted);font-size:90%'>[${sizeKb} KB, ${mtime}]</span></li>`;
         })
         .join('');
     } else {

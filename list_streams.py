@@ -85,8 +85,7 @@ async def list_streams_sse(db):
                     'uid': stream.uid or '',
                     'size': stream.storage_bytes or 0,
                     'mtime': int(stream.mtime) if stream.mtime is not None else 0,
-                    'username': stream.username or stream.uid or '',
-                    'display_name': stream.display_name or stream.username or stream.uid or '',
+                    'username': stream.username or '',
                     'created_at': stream.created_at.isoformat() if stream.created_at else None,
                     'updated_at': stream.updated_at.isoformat() if stream.updated_at else None
                 }
