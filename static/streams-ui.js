@@ -1,5 +1,5 @@
 // static/streams-ui.js — public streams loader and profile-link handling
-import { showOnly } from './router.js';
+
 import { globalAudioManager } from './global-audio-manager.js';
 
 // Global variable to track if we should force refresh the stream list

@@ -2,7 +2,7 @@
 
 import { showToast } from "./toast.js";
 import { playBeep } from "./sound.js";
-import { logToServer } from "./app.js";
+import { logToServer } from "./logger.js";
 
 // Initialize upload system when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {

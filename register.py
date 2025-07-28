@@ -51,30 +51,49 @@ def initialize_user_directory(username: str):
 @router.post("/register")
 def register(request: Request, email: str = Form(...), user: str = Form(...), db: Session = Depends(get_db)):
     from sqlalchemy.exc import IntegrityError
-    # Try to find user by email or username
-    existing_user = db.get(User, email)
-    if not existing_user:
-        # Try by username (since username is not primary key, need to query)
-        stmt = select(User).where(User.username == user)
-        existing_user = db.exec(stmt).first()
+    from datetime import datetime
+    
+    # Check if user exists by email
+    existing_user_by_email = db.get(User, email)
+    
+    # Check if user exists by username
+    stmt = select(User).where(User.username == user)
+    existing_user_by_username = db.exec(stmt).first()
+    
     token = str(uuid.uuid4())
-    if existing_user:
-        # Update token, timestamp, and ip, set confirmed False
-        from datetime import datetime
-        existing_user.token = token
-        existing_user.token_created = datetime.utcnow()
-        existing_user.confirmed = False
-        existing_user.ip = request.client.host
-        db.add(existing_user)
+    
+    # Case 1: Email and username match in db - it's a login
+    if existing_user_by_email and existing_user_by_username and existing_user_by_email.email == existing_user_by_username.email:
+        # Update token for existing user (login)
+        existing_user_by_email.token = token
+        existing_user_by_email.token_created = datetime.utcnow()
+        existing_user_by_email.confirmed = False
+        existing_user_by_email.ip = request.client.host
+        db.add(existing_user_by_email)
         try:
             db.commit()
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    else:
+        
+        action = "login"
+    
+    # Case 2: Email matches but username does not - only one account per email
+    elif existing_user_by_email and (not existing_user_by_username or existing_user_by_email.email != existing_user_by_username.email):
+        raise HTTPException(status_code=409, detail="📧 This email is already registered with a different username.\nOnly one account per email is allowed.")
+    
+    # Case 3: Email does not match but username is in db - username already taken
+    elif not existing_user_by_email and existing_user_by_username:
+        raise HTTPException(status_code=409, detail="👤 This username is already taken.\nPlease choose a different username.")
+    
+    # Case 4: Neither email nor username exist - create new user
+    elif not existing_user_by_email and not existing_user_by_username:
         # Register new user
-        db.add(User(email=email, username=user, token=token, confirmed=False, ip=request.client.host))
-        db.add(UserQuota(uid=user))
+        new_user = User(email=email, username=user, token=token, confirmed=False, ip=request.client.host)
+        new_quota = UserQuota(uid=email)  # Use email as UID for quota tracking
+        
+        db.add(new_user)
+        db.add(new_quota)
         
         try:
             # First commit the user to the database
@@ -86,30 +105,46 @@ def register(request: Request, email: str = Form(...), user: str = Form(...), db
             db.rollback()
             if isinstance(e, IntegrityError):
                 # Race condition: user created after our check
-                # Try again as login
-                stmt = select(User).where((User.email == email) | (User.username == user))
-                existing_user = db.exec(stmt).first()
-                if existing_user:
-                    existing_user.token = token
-                    existing_user.confirmed = False
-                    existing_user.ip = request.client.host
-                    db.add(existing_user)
-                    db.commit()
+                # Check which constraint was violated to provide specific feedback
+                error_str = str(e).lower()
+                
+                if 'username' in error_str or 'user_username_key' in error_str:
+                    raise HTTPException(status_code=409, detail="👤 This username is already taken.\nPlease choose a different username.")
+                elif 'email' in error_str or 'user_pkey' in error_str:
+                    raise HTTPException(status_code=409, detail="📧 This email is already registered with a different username.\nOnly one account per email is allowed.")
                 else:
-                    raise HTTPException(status_code=409, detail="Username or email already exists.")
+                    # Generic fallback if we can't determine the specific constraint
+                    raise HTTPException(status_code=409, detail="⚠️ Registration failed due to a conflict.\nPlease try again with different credentials.")
             else:
                 raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    # Send magic link
+        
+        action = "registration"
+    
+    else:
+        # This should not happen, but handle it gracefully
+        raise HTTPException(status_code=500, detail="Unexpected error during registration.")
+    # Send magic link with appropriate message based on action
     msg = EmailMessage()
     msg["From"] = MAGIC_FROM
     msg["To"] = email
-    msg["Subject"] = "Your magic login link"
-    msg.set_content(
-        f"Hello {user},\n\nClick to confirm your account:\n{MAGIC_DOMAIN}/?token={token}\n\nThis link is valid for one-time login."
-    )
+    
+    if action == "login":
+        msg["Subject"] = "Your magic login link"
+        msg.set_content(
+            f"Hello {user},\n\nClick to log in to your account:\n{MAGIC_DOMAIN}/?token={token}\n\nThis link is valid for one-time login."
+        )
+        response_message = "📧 Check your email for a magic login link!"
+    else:  # registration
+        msg["Subject"] = "Welcome to dicta2stream - Confirm your account"
+        msg.set_content(
+            f"Hello {user},\n\nWelcome to dicta2stream! Click to confirm your new account:\n{MAGIC_DOMAIN}/?token={token}\n\nThis link is valid for one-time confirmation."
+        )
+        response_message = "🎉 Account created! Check your email for a magic login link!"
+    
     try:
         with smtplib.SMTP("localhost") as smtp:
             smtp.send_message(msg)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Email failed: {e}")
-    return { "message": "Confirmation sent" }
+    
+    return {"message": response_message, "action": action}

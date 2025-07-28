@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
-from models import User, UserQuota, UploadLog, DBSession
+from models import User, UserQuota, UploadLog, DBSession, PublicStream
 from database import get_db
 import os
 from typing import Dict, Any
@@ -23,10 +23,26 @@ async def delete_account(data: Dict[str, Any], request: Request, db: Session = D
         print(f"[DELETE_ACCOUNT] Processing delete request for UID: {uid} from IP: {ip}")
 
         # Verify user exists and IP matches
-        user = db.exec(select(User).where(User.username == uid)).first()
+        # Handle both email-based and username-based UIDs for backward compatibility
+        user = None
+        
+        # First try to find by email (new UID format)
+        if '@' in uid:
+            user = db.exec(select(User).where(User.email == uid)).first()
+            print(f"[DELETE_ACCOUNT] Looking up user by email: {uid}")
+        
+        # If not found by email, try by username (legacy UID format)
         if not user:
-            print(f"[DELETE_ACCOUNT] Error: User {uid} not found")
+            user = db.exec(select(User).where(User.username == uid)).first()
+            print(f"[DELETE_ACCOUNT] Looking up user by username: {uid}")
+            
+        if not user:
+            print(f"[DELETE_ACCOUNT] Error: User {uid} not found (tried both email and username lookup)")
             raise HTTPException(status_code=404, detail="User not found")
+            
+        # Use the actual email as the UID for database operations
+        actual_uid = user.email
+        print(f"[DELETE_ACCOUNT] Found user: {user.username} ({user.email}), using email as UID: {actual_uid}")
             
         if user.ip != ip:
             print(f"[DELETE_ACCOUNT] Error: IP mismatch. User IP: {user.ip}, Request IP: {ip}")
@@ -34,32 +50,44 @@ async def delete_account(data: Dict[str, Any], request: Request, db: Session = D
 
         # Start transaction
         try:
-            # Delete user's upload logs
-            uploads = db.exec(select(UploadLog).where(UploadLog.uid == uid)).all()
+            # Delete user's upload logs (use actual_uid which is always the email)
+            uploads = db.exec(select(UploadLog).where(UploadLog.uid == actual_uid)).all()
             for upload in uploads:
                 db.delete(upload)
-            print(f"[DELETE_ACCOUNT] Deleted {len(uploads)} upload logs for user {uid}")
+            print(f"[DELETE_ACCOUNT] Deleted {len(uploads)} upload logs for user {actual_uid}")
+
+            # Delete user's public streams
+            streams = db.exec(select(PublicStream).where(PublicStream.uid == actual_uid)).all()
+            for stream in streams:
+                db.delete(stream)
+            print(f"[DELETE_ACCOUNT] Deleted {len(streams)} public streams for user {actual_uid}")
 
             # Delete user's quota
-            quota = db.get(UserQuota, uid)
+            quota = db.get(UserQuota, actual_uid)
             if quota:
                 db.delete(quota)
-                print(f"[DELETE_ACCOUNT] Deleted quota for user {uid}")
+                print(f"[DELETE_ACCOUNT] Deleted quota for user {actual_uid}")
 
-            # Delete user's active sessions
-            sessions = db.exec(select(DBSession).where(DBSession.user_id == uid)).all()
-            for session in sessions:
+            # Delete user's active sessions (check both email and username as user_id)
+            sessions_by_email = db.exec(select(DBSession).where(DBSession.user_id == actual_uid)).all()
+            sessions_by_username = db.exec(select(DBSession).where(DBSession.user_id == user.username)).all()
+            
+            all_sessions = list(sessions_by_email) + list(sessions_by_username)
+            # Remove duplicates using token (primary key) instead of id
+            unique_sessions = {session.token: session for session in all_sessions}.values()
+            
+            for session in unique_sessions:
                 db.delete(session)
-            print(f"[DELETE_ACCOUNT] Deleted {len(sessions)} active sessions for user {uid}")
+            print(f"[DELETE_ACCOUNT] Deleted {len(unique_sessions)} active sessions for user {actual_uid} (checked both email and username)")
 
             # Delete user account
-            user_obj = db.get(User, user.email)
+            user_obj = db.get(User, actual_uid)  # Use actual_uid which is the email
             if user_obj:
                 db.delete(user_obj)
-                print(f"[DELETE_ACCOUNT] Deleted user account {uid} ({user.email})")
+                print(f"[DELETE_ACCOUNT] Deleted user account {actual_uid}")
 
             db.commit()
-            print(f"[DELETE_ACCOUNT] Database changes committed for user {uid}")
+            print(f"[DELETE_ACCOUNT] Database changes committed for user {actual_uid}")
 
         except Exception as e:
             db.rollback()
@@ -87,7 +115,7 @@ async def delete_account(data: Dict[str, Any], request: Request, db: Session = D
             print(f"[DELETE_ACCOUNT] Error deleting user files: {str(e)}")
             # Continue even if file deletion fails, as the account is already deleted from the DB
 
-        print(f"[DELETE_ACCOUNT] Successfully deleted account for user {uid}")
+        print(f"[DELETE_ACCOUNT] Successfully deleted account for user {actual_uid} (original UID: {uid})")
         return {"status": "success", "message": "Account and all associated data have been deleted"}
         
     except HTTPException as he:

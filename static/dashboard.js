@@ -1,4 +1,5 @@
 import { showToast } from "./toast.js";
+import { showSection } from './nav.js';
 
 // Utility function to get cookie value by name
 function getCookie(name) {
@@ -14,6 +15,7 @@ let isLoggingOut = false;
 
 async function handleLogout(event) {
   console.log('[LOGOUT] Logout initiated');
+  
   // Prevent multiple simultaneous logout attempts
   if (isLoggingOut) {
     console.log('[LOGOUT] Logout already in progress');
@@ -27,18 +29,66 @@ async function handleLogout(event) {
     event.stopPropagation();
   }
   
-  // Get auth token before we clear it
-  const authToken = localStorage.getItem('authToken');
-  
-  // 1. First try to invalidate the server session (but don't block on it)
-  if (authToken) {
-    try {
-      // We'll use a timeout to prevent hanging on the server request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
-      
+  try {
+    // Get auth token before we clear it
+    const authToken = localStorage.getItem('authToken');
+    
+    // 1. Clear all client-side state first (most important)
+    console.log('[LOGOUT] Clearing all client-side state');
+    
+    // Clear localStorage and sessionStorage
+    const storageKeys = [
+      'uid', 'uid_time', 'confirmed_uid', 'last_page',
+      'isAuthenticated', 'authToken', 'user', 'token', 'sessionid', 'sessionId'
+    ];
+    
+    storageKeys.forEach(key => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+    
+    // Get all current cookies for debugging
+    const allCookies = document.cookie.split(';');
+    console.log('[LOGOUT] Current cookies before clearing:', allCookies);
+    
+    // Clear ALL cookies (aggressive approach)
+    allCookies.forEach(cookie => {
+      const [name] = cookie.trim().split('=');
+      if (name) {
+        const cookieName = name.trim();
+        console.log(`[LOGOUT] Clearing cookie: ${cookieName}`);
+        
+        // Try multiple clearing strategies to ensure cookies are removed
+        const clearStrategies = [
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`,
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`,
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname};`,
+          `${cookieName}=; max-age=0; path=/;`,
+          `${cookieName}=; max-age=0; path=/; domain=${window.location.hostname};`
+        ];
+        
+        clearStrategies.forEach(strategy => {
+          document.cookie = strategy;
+        });
+      }
+    });
+    
+    // Verify cookies are cleared
+    const remainingCookies = document.cookie.split(';').filter(c => c.trim());
+    console.log('[LOGOUT] Remaining cookies after clearing:', remainingCookies);
+    
+    // Update UI state
+    document.body.classList.remove('authenticated', 'logged-in');
+    document.body.classList.add('guest');
+    
+    // 2. Try to invalidate server session (non-blocking)
+    if (authToken) {
       try {
-        await fetch('/api/logout', {
+        console.log('[LOGOUT] Attempting to invalidate server session');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        
+        const response = await fetch('/api/logout', {
           method: 'POST',
           credentials: 'include',
           signal: controller.signal,
@@ -47,141 +97,27 @@ async function handleLogout(event) {
             'Authorization': `Bearer ${authToken}`
           },
         });
-        clearTimeout(timeoutId);
-      } catch (error) {
-        clearTimeout(timeoutId);
-        // Silently handle any errors during server logout
-      }
-    } catch (error) {
-      // Silently handle any unexpected errors
-    }
-  }
-  
-  // 2. Clear all client-side state
-  function clearClientState() {
-    console.log('[LOGOUT] Clearing client state');
-    
-    // Clear all authentication-related data from localStorage
-    const keysToRemove = [
-      'uid', 'uid_time', 'confirmed_uid', 'last_page',
-      'isAuthenticated', 'authToken', 'user', 'token', 'sessionid'
-    ];
-    
-    keysToRemove.forEach(key => {
-      localStorage.removeItem(key);
-      sessionStorage.removeItem(key);
-    });
-    
-    // Get current cookies for debugging
-    const cookies = document.cookie.split(';');
-    console.log('[LOGOUT] Current cookies before clearing:', cookies);
-    
-    // Function to clear a cookie by name
-    const clearCookie = (name) => {
-      console.log(`[LOGOUT] Attempting to clear cookie: ${name}`);
-      const baseOptions = 'Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax';
-      // Try with current domain
-      document.cookie = `${name}=; ${baseOptions}`;
-      // Try with domain
-      document.cookie = `${name}=; ${baseOptions}; domain=${window.location.hostname}`;
-      // Try with leading dot for subdomains
-      document.cookie = `${name}=; ${baseOptions}; domain=.${window.location.hostname}`;
-    };
-    
-    // Clear all authentication-related cookies
-    const authCookies = [
-      'uid', 'authToken', 'isAuthenticated', 'sessionid', 'session_id',
-      'token', 'remember_token', 'auth', 'authentication'
-    ];
-    
-    // Clear specific auth cookies
-    authCookies.forEach(clearCookie);
-    
-    // Also clear any existing cookies that match our patterns
-    cookies.forEach(cookie => {
-      const [name] = cookie.trim().split('=');
-      if (name && authCookies.some(authName => name.trim() === authName)) {
-        clearCookie(name.trim());
-      }
-    });
-    
-    // Clear all cookies by setting them to expire in the past
-    document.cookie.split(';').forEach(cookie => {
-      const [name] = cookie.trim().split('=');
-      if (name) {
-        clearCookie(name.trim());
-      }
-    });
-    
-    console.log('[LOGOUT] Cookies after clearing:', document.cookie);
-    
-    // Update UI state
-    document.body.classList.remove('authenticated');
-    document.body.classList.add('guest');
-    
-    // Force a hard reload to ensure all state is reset
-    setTimeout(() => {
-      // Clear all storage again before redirecting
-      keysToRemove.forEach(key => {
-        localStorage.removeItem(key);
-        sessionStorage.removeItem(key);
-      });
-      
-      // Redirect to home with a cache-busting parameter
-      window.location.href = '/?logout=' + Date.now();
-    }, 100);
-  }
-  
-  try {
-    // Clear client state immediately to prevent any race conditions
-    clearClientState();
-    
-    // 2. Try to invalidate the server session (but don't block on it)
-    console.log('[LOGOUT] Auth token exists:', !!authToken);
-    if (authToken) {
-      try {
-        console.log('[LOGOUT] Attempting to invalidate server session');
         
-        const response = await fetch('/api/logout', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-        });
-        
-        if (!response.ok && response.status !== 401) {
-          console.warn(`[LOGOUT] Server returned ${response.status} during logout`);
-          // Don't throw - we've already cleared client state
-        } else {
-          console.log('[LOGOUT] Server session invalidated successfully');
-        }
+        clearTimeout(timeoutId);
+        console.log('[LOGOUT] Server session invalidation completed');
       } catch (error) {
-        console.warn('[LOGOUT] Error during server session invalidation (non-critical):', error);
-        // Continue with logout process
+        console.warn('[LOGOUT] Server session invalidation failed (non-critical):', error);
       }
     }
     
-    // 3. Update navigation if the function exists
-    if (typeof injectNavigation === 'function') {
-      injectNavigation(false);
-    }
-    
-    console.log('[LOGOUT] Logout completed');
-    
+    // 3. Final redirect
+    console.log('[LOGOUT] Redirecting to home page');
+    window.location.href = '/?logout=' + Date.now();
+
   } catch (error) {
-    console.error('[LOGOUT] Logout failed:', error);
+    console.error('[LOGOUT] Unexpected error during logout:', error);
     if (window.showToast) {
       showToast('Logout failed. Please try again.');
     }
+    // Even if there's an error, force redirect to clear state
+    window.location.href = '/?logout=error-' + Date.now();
   } finally {
     isLoggingOut = false;
-    
-    // 4. Redirect to home page after a short delay to ensure state is cleared
-    setTimeout(() => {
-      window.location.href = '/';
-    }, 100);
   }
 }
 
@@ -221,11 +157,60 @@ async function handleDeleteAccount() {
     if (response.ok) {
       showToast('Account deleted successfully');
       
-      // Clear user data
-      localStorage.removeItem('uid');
-      localStorage.removeItem('uid_time');
-      localStorage.removeItem('confirmed_uid');
-      document.cookie = 'uid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      // Use comprehensive logout logic to clear all cookies and storage
+      console.log('🧹 Account deleted - clearing all authentication data...');
+      
+      // Clear all authentication-related data from localStorage
+      const keysToRemove = [
+        'uid', 'uid_time', 'confirmed_uid', 'last_page',
+        'isAuthenticated', 'authToken', 'user', 'token', 'sessionid'
+      ];
+      
+      keysToRemove.forEach(key => {
+        if (localStorage.getItem(key)) {
+          console.log(`Removing localStorage key: ${key}`);
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Clear sessionStorage completely
+      sessionStorage.clear();
+      console.log('Cleared sessionStorage');
+      
+      // Clear all cookies using multiple strategies
+      const clearCookie = (cookieName) => {
+        const clearStrategies = [
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`,
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`,
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname};`,
+          `${cookieName}=; max-age=0; path=/;`,
+          `${cookieName}=; max-age=0; path=/; domain=${window.location.hostname};`
+        ];
+        
+        clearStrategies.forEach(strategy => {
+          document.cookie = strategy;
+        });
+        console.log(`Cleared cookie: ${cookieName}`);
+      };
+      
+      // Clear all cookies by setting them to expire in the past
+      document.cookie.split(';').forEach(cookie => {
+        const [name] = cookie.trim().split('=');
+        if (name) {
+          clearCookie(name.trim());
+        }
+      });
+      
+      // Also specifically clear known authentication cookies
+      const authCookies = ['authToken', 'isAuthenticated', 'sessionId', 'uid', 'token'];
+      authCookies.forEach(clearCookie);
+      
+      // Log remaining cookies for verification
+      console.log('Remaining cookies after deletion cleanup:', document.cookie);
+      
+      // Update UI state
+      document.body.classList.remove('authenticated');
+      document.body.classList.add('guest');
       
       // Redirect to home page
       setTimeout(() => {
@@ -274,333 +259,54 @@ function debugElementVisibility(elementId) {
  */
 async function initDashboard() {
   console.log('[DASHBOARD] Initializing dashboard...');
-  
-  // Get all dashboard elements
-  const guestDashboard = document.getElementById('guest-dashboard');
-  const userDashboard = document.getElementById('user-dashboard');
-  const userUpload = document.getElementById('user-upload-area');
-  const logoutButton = document.getElementById('logout-button');
-  const deleteAccountButton = document.getElementById('delete-account-button');
-  const fileList = document.getElementById('file-list');
-  
-  // Add click event listeners for logout and delete account buttons
-  if (logoutButton) {
-    console.log('[DASHBOARD] Adding logout button handler');
-    logoutButton.addEventListener('click', handleLogout);
-  }
-  
-  if (deleteAccountButton) {
-    console.log('[DASHBOARD] Adding delete account button handler');
-    deleteAccountButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      handleDeleteAccount();
-    });
-  }
-  
-  // Check authentication state - consolidated to avoid duplicate declarations
-  const hasAuthCookie = document.cookie.includes('isAuthenticated=true');
-  const hasUidCookie = document.cookie.includes('uid=');
-  const hasLocalStorageAuth = localStorage.getItem('isAuthenticated') === 'true';
-  const hasAuthToken = localStorage.getItem('authToken') !== null;
-  const isAuthenticated = hasAuthCookie || hasUidCookie || hasLocalStorageAuth || hasAuthToken;
-  
-  // Ensure body class reflects authentication state
-  if (isAuthenticated) {
-    document.body.classList.add('authenticated');
-    document.body.classList.remove('guest-mode');
-  } else {
-    document.body.classList.remove('authenticated');
-    document.body.classList.add('guest-mode');
-  }
-  
-  // Debug authentication state
-  console.log('[AUTH] Authentication state:', {
-    hasAuthCookie,
-    hasUidCookie,
-    hasLocalStorageAuth,
-    hasAuthToken,
-    isAuthenticated,
-    cookies: document.cookie,
-    localStorage: {
-      isAuthenticated: localStorage.getItem('isAuthenticated'),
-      uid: localStorage.getItem('uid'),
-      authToken: localStorage.getItem('authToken') ? 'present' : 'not present'
-    },
-    bodyClasses: document.body.className
-  });
-  
-  // Handle authenticated user
-  if (isAuthenticated) {
-    console.log('[DASHBOARD] User is authenticated, showing user dashboard');
-    if (userDashboard) userDashboard.style.display = 'block';
-    if (userUpload) userUpload.style.display = 'block';
-    if (guestDashboard) guestDashboard.style.display = 'none';
-    
-    // Add authenticated class to body if not present
-    document.body.classList.add('authenticated');
-    
-    // Get UID from cookies or localStorage
-    let uid = getCookie('uid') || localStorage.getItem('uid');
-    
-    if (!uid) {
-      console.warn('[DASHBOARD] No UID found in cookies or localStorage');
-      // Try to get UID from the URL or hash fragment
-      const urlParams = new URLSearchParams(window.location.search);
-      uid = urlParams.get('uid') || window.location.hash.substring(1);
-      
-      if (uid) {
-        console.log(`[DASHBOARD] Using UID from URL/hash: ${uid}`);
-        localStorage.setItem('uid', uid);
-      } else {
-        console.error('[DASHBOARD] No UID available for file listing');
-        if (fileList) {
-          fileList.innerHTML = `
-            <li class="error-message">
-              Error: Could not determine user account. Please <a href="/#login" class="login-link">log in</a> again.
-            </li>`;
-        }
-        return;
-      }
-    }
-    
-    // Initialize file listing if we have a UID
-    if (window.fetchAndDisplayFiles) {
-      console.log(`[DASHBOARD] Initializing file listing for UID: ${uid}`);
-      try {
-        await window.fetchAndDisplayFiles(uid);
-      } catch (error) {
-        console.error('[DASHBOARD] Error initializing file listing:', error);
-        if (fileList) {
-          fileList.innerHTML = `
-            <li class="error-message">
-              Error loading files: ${error.message || 'Unknown error'}. 
-              Please <a href="/#login" class="login-link">log in</a> again.
-            </li>`;
-        }
-      }
-    }
-  } else {
-    // Guest view
-    console.log('[DASHBOARD] User not authenticated, showing guest dashboard');
-    if (guestDashboard) guestDashboard.style.display = 'block';
-    if (userDashboard) userDashboard.style.display = 'none';
-    if (userUpload) userUpload.style.display = 'none';
-    
-    // Remove authenticated class if present
-    document.body.classList.remove('authenticated');
-    
-    // Show login prompt
-    if (fileList) {
-      fileList.innerHTML = `
-        <li class="error-message">
-          Please <a href="/#login" class="login-link">log in</a> to view your files.
-        </li>`;
-    }
-  }
-
-  // Log authentication details for debugging
-  console.log('[DASHBOARD] Authentication details:', {
-    uid: getCookie('uid') || localStorage.getItem('uid'),
-    cookies: document.cookie,
-    localStorage: {
-      uid: localStorage.getItem('uid'),
-      isAuthenticated: localStorage.getItem('isAuthenticated'),
-      authToken: localStorage.getItem('authToken') ? 'present' : 'not present'
-    }
-  });
-  
-  // If not authenticated, show guest view and return early
-  if (!isAuthenticated) {
-    console.log('[DASHBOARD] User not authenticated, showing guest dashboard');
-    if (guestDashboard) guestDashboard.style.display = 'block';
-    if (userDashboard) userDashboard.style.display = 'none';
-    if (userUpload) userUpload.style.display = 'none';
-    
-    // Remove authenticated class if present
-    document.body.classList.remove('authenticated');
-    
-    // Show login prompt
-    if (fileList) {
-      fileList.innerHTML = `
-        <li class="error-message">
-          Please <a href="/#login" class="login-link">log in</a> to view your files.
-        </li>`;
-    }
-    return;
-  }
-  
-  // Logged-in view - show user dashboard
-  console.log('[DASHBOARD] User is logged in, showing user dashboard');
-  
-  // Get all page elements
-  const mePage = document.getElementById('me-page');
-  
-  // Log current display states for debugging
-  console.log('[DASHBOARD] Updated display states:', {
-    guestDashboard: guestDashboard ? window.getComputedStyle(guestDashboard).display : 'not found',
-    userDashboard: userDashboard ? window.getComputedStyle(userDashboard).display : 'not found',
-    userUpload: userUpload ? window.getComputedStyle(userUpload).display : 'not found',
-    logoutButton: logoutButton ? window.getComputedStyle(logoutButton).display : 'not found',
-    deleteAccountButton: deleteAccountButton ? window.getComputedStyle(deleteAccountButton).display : 'not found',
-    mePage: mePage ? window.getComputedStyle(mePage).display : 'not found'
-  });
-  
-  // Hide guest dashboard
-  if (guestDashboard) {
-    console.log('[DASHBOARD] Hiding guest dashboard');
-    guestDashboard.style.display = 'none';
-  }
-  
-  // Show user dashboard
-  if (userDashboard) {
-    console.log('[DASHBOARD] Showing user dashboard');
-    userDashboard.style.display = 'block';
-    userDashboard.style.visibility = 'visible';
-    userDashboard.hidden = false;
-    
-    // Log final visibility state after changes
-    console.log('[DEBUG] Final visibility state after showing user dashboard:', {
-      userDashboard: debugElementVisibility('user-dashboard'),
-      guestDashboard: debugElementVisibility('guest-dashboard'),
-      computedDisplay: window.getComputedStyle(userDashboard).display,
-      computedVisibility: window.getComputedStyle(userDashboard).visibility
-    });
-    
-    // Debug: Check if the element is actually in the DOM
-    console.log('[DASHBOARD] User dashboard parent:', userDashboard.parentElement);
-    console.log('[DASHBOARD] User dashboard computed display:', window.getComputedStyle(userDashboard).display);
-  } else {
-    console.error('[DASHBOARD] userDashboard element not found!');
-  }
-  
-  // Show essential elements for logged-in users
-  const linksSection = document.getElementById('links');
-  if (linksSection) {
-    console.log('[DASHBOARD] Showing links section');
-    linksSection.style.display = 'block';
-  }
-  
-  const showMeLink = document.getElementById('show-me');
-  if (showMeLink && showMeLink.parentElement) {
-    console.log('[DASHBOARD] Showing show-me link');
-    showMeLink.parentElement.style.display = 'block';
-  }
-  
-  // Show me-page for logged-in users
-  if (mePage) {
-    console.log('[DASHBOARD] Showing me-page');
-    mePage.style.display = 'block';
-  }
-
   try {
-    // Try to get UID from various sources
-    let uid = getCookie('uid') || localStorage.getItem('uid');
-    
-    // If we have a valid UID, try to fetch user data
-    if (uid && uid !== 'welcome-page' && uid !== 'undefined' && uid !== 'null') {
-      console.log('[DASHBOARD] Found valid UID:', uid);
-      console.log(`[DEBUG] Fetching user data for UID: ${uid}`);
-      const response = await fetch(`/me/${uid}`);
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[ERROR] Failed to fetch user data: ${response.status} ${response.statusText}`, errorText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      // Parse and handle the response data
-      const data = await response.json();
-      console.log('[DEBUG] User data loaded:', data);
-      
-      // Ensure upload area is visible if last_page was me-page
-      if (userUpload && localStorage.getItem('last_page') === 'me-page') {
-        // userUpload visibility is now only controlled by nav.js SPA logic
-      }
+    const guestDashboard = document.getElementById('guest-dashboard');
+    const userDashboard = document.getElementById('user-dashboard');
+    const userUpload = document.getElementById('user-upload-area');
+    const logoutButton = document.getElementById('logout-button');
+    const deleteAccountButton = document.getElementById('delete-account-button');
+    const fileList = document.getElementById('file-list');
 
-      // Remove guest warning if present
-      const guestMsg = document.getElementById('guest-warning-msg');
-      if (guestMsg && guestMsg.parentNode) guestMsg.parentNode.removeChild(guestMsg);
-      
-      // Show user dashboard and logout button
-      if (userDashboard) userDashboard.style.display = '';
-      if (logoutButton) {
-        logoutButton.style.display = 'block';
-        logoutButton.onclick = handleLogout;
-      }
+    if (logoutButton) {
+      logoutButton.addEventListener('click', handleLogout);
+    }
+    if (deleteAccountButton) {
+      deleteAccountButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleDeleteAccount();
+      });
+    }
 
-      // Set audio source
-      const meAudio = document.getElementById('me-audio');
-      const username = data?.username || '';
-      
-      if (meAudio) {
-        if (username) {
-          // Use username for the audio file path if available
-          meAudio.src = `/audio/${encodeURIComponent(username)}/stream.opus?t=${Date.now()}`;
-          console.log('Setting audio source to:', meAudio.src);
-        } else if (uid) {
-          // Fallback to UID if username is not available
-          meAudio.src = `/audio/${encodeURIComponent(uid)}/stream.opus?t=${Date.now()}`;
-          console.warn('Using UID fallback for audio source:', meAudio.src);
-        }
-      }
+    const isAuthenticated = (document.cookie.includes('isAuthenticated=true') || localStorage.getItem('isAuthenticated') === 'true');
 
-      // Update quota and ensure quota meter is visible if data is available
-      const quotaMeter = document.getElementById('quota-meter');
-      const quotaBar = document.getElementById('quota-bar');
-      const quotaText = document.getElementById('quota-text');
-      
-      if (quotaBar && data.quota !== undefined) {
-        quotaBar.value = data.quota;
-      }
-      
-      if (quotaText && data.quota !== undefined) {
-        quotaText.textContent = `${data.quota} MB`;
-      }
-      
-      if (quotaMeter) {
-        quotaMeter.hidden = false;
-        quotaMeter.style.display = 'block'; // Ensure it's not hidden by display:none
-      }
-      
-      // Fetch and display the list of uploaded files if the function is available
-      if (window.fetchAndDisplayFiles) {
-        console.log('[DASHBOARD] Calling fetchAndDisplayFiles with UID:', uid);
-        // Ensure we have the most up-to-date UID from the response data if available
-        const effectiveUid = data?.uid || uid;
-        console.log('[DASHBOARD] Using effective UID:', effectiveUid);
-        window.fetchAndDisplayFiles(effectiveUid);
-      } else {
-        console.error('[DASHBOARD] fetchAndDisplayFiles function not found!');
+    if (isAuthenticated) {
+      document.body.classList.add('authenticated');
+      document.body.classList.remove('guest-mode');
+      if (userDashboard) userDashboard.style.display = 'block';
+      if (userUpload) userUpload.style.display = 'block';
+      if (guestDashboard) guestDashboard.style.display = 'none';
+
+      const uid = getCookie('uid') || localStorage.getItem('uid');
+      if (uid && window.fetchAndDisplayFiles) {
+        await window.fetchAndDisplayFiles(uid);
       }
     } else {
-      // No valid UID found, ensure we're in guest mode
-      console.log('[DASHBOARD] No valid UID found, showing guest dashboard');
-      userDashboard.style.display = 'none';
-      guestDashboard.style.display = 'block';
-      userUpload.style.display = 'none';
       document.body.classList.remove('authenticated');
-      return; // Exit early for guest users
+      document.body.classList.add('guest-mode');
+      if (guestDashboard) guestDashboard.style.display = 'block';
+      if (userDashboard) userDashboard.style.display = 'none';
+      if (userUpload) userUpload.style.display = 'none';
+      if (fileList) {
+        fileList.innerHTML = `<li class="error-message">Please <a href="/#login" class="login-link">log in</a> to view your files.</li>`;
+      }
     }
-
-    // Ensure Streams link remains in nav, not moved
-    // (No action needed if static)
   } catch (e) {
-    console.warn('Dashboard init error, falling back to guest mode:', e);
-    
-    // Ensure guest UI is shown
-    userUpload.style.display = 'none';
-    userDashboard.style.display = 'none';
+    console.error('Dashboard initialization failed:', e);
+    const guestDashboard = document.getElementById('guest-dashboard');
+    const userDashboard = document.getElementById('user-dashboard');
+    if (userDashboard) userDashboard.style.display = 'none';
     if (guestDashboard) guestDashboard.style.display = 'block';
-    
-    // Update body classes
     document.body.classList.remove('authenticated');
-    document.body.classList.add('guest-mode');
-    
-    // Ensure navigation is in correct state
-    const registerLink = document.getElementById('guest-login');
-    const streamsLink = document.getElementById('guest-streams');
-    if (registerLink && streamsLink) {
-      registerLink.parentElement.insertAdjacentElement('afterend', streamsLink.parentElement);
-    }
   }
 }
 
@@ -977,30 +683,36 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize dashboard components
   initDashboard();  // initFileUpload is called from within initDashboard
   
-  // Add event delegation for delete buttons
+  // Delegated event listener for clicks on the document
   document.addEventListener('click', (e) => {
-    const deleteButton = e.target.closest('.delete-file');
-    if (!deleteButton) return;
-    
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const listItem = deleteButton.closest('.file-item');
-    if (!listItem) return;
-    
-    // Get UID from localStorage
-    const uid = localStorage.getItem('uid') || localStorage.getItem('confirmed_uid');
-    if (!uid) {
-      showToast('You need to be logged in to delete files', 'error');
-      console.error('[DELETE] No UID found in localStorage');
+    // Logout Button
+    if (e.target.closest('#logout-button')) {
+      e.preventDefault();
+      handleLogout(e);
       return;
     }
-    
-    const fileName = deleteButton.getAttribute('data-filename');
-    const displayName = deleteButton.getAttribute('data-original-name') || fileName;
-    
-    // Pass the UID to deleteFile
-    deleteFile(uid, fileName, listItem, displayName);
+
+    // Delete File Button
+    const deleteButton = e.target.closest('.delete-file');
+    if (deleteButton) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const listItem = deleteButton.closest('.file-item');
+      if (!listItem) return;
+
+      const uid = localStorage.getItem('uid') || localStorage.getItem('confirmed_uid');
+      if (!uid) {
+        showToast('You need to be logged in to delete files', 'error');
+        console.error('[DELETE] No UID found in localStorage');
+        return;
+      }
+
+      const fileName = deleteButton.getAttribute('data-filename');
+      const displayName = deleteButton.getAttribute('data-original-name') || fileName;
+      
+      deleteFile(uid, fileName, listItem, displayName);
+    }
   });
   
   // Make fetchAndDisplayFiles available globally
@@ -1062,183 +774,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   // Connect Login or Register link to register form
-  // Login/Register (guest)
-  const loginLink = document.getElementById('guest-login');
-  if (loginLink) {
-    loginLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      document.querySelectorAll('main > section').forEach(sec => {
-        sec.hidden = sec.id !== 'register-page';
-      });
-      const reg = document.getElementById('register-page');
-      if (reg) reg.hidden = false;
-      reg.scrollIntoView({behavior:'smooth'});
-    });
-  }
-  // Terms of Service (all dashboards)
-  const termsLinks = [
-    document.getElementById('guest-terms'),
-    document.getElementById('user-terms')
-  ];
-  termsLinks.forEach(link => {
-    if (link) {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.querySelectorAll('main > section').forEach(sec => {
-          sec.hidden = sec.id !== 'terms-page';
-        });
-        const terms = document.getElementById('terms-page');
-        if (terms) terms.hidden = false;
-        terms.scrollIntoView({behavior:'smooth'});
-      });
-    }
+  // All navigation is now handled by the global click and hashchange listeners in nav.js.
+  // The legacy setupPageNavigation function and manual nav link handlers have been removed.
   });
-
-  // Imprint (all dashboards)
-  const imprintLinks = [
-    document.getElementById('guest-imprint'),
-    document.getElementById('user-imprint')
-  ];
-  imprintLinks.forEach(link => {
-    if (link) {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.querySelectorAll('main > section').forEach(sec => {
-          sec.hidden = sec.id !== 'imprint-page';
-        });
-        const imprint = document.getElementById('imprint-page');
-        if (imprint) imprint.hidden = false;
-        imprint.scrollIntoView({behavior:'smooth'});
-      });
-    }
-  });
-
-  // Privacy Policy (all dashboards)
-  const privacyLinks = [
-    document.getElementById('guest-privacy'),
-    document.getElementById('user-privacy')
-  ];
-  privacyLinks.forEach(link => {
-    if (link) {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.querySelectorAll('main > section').forEach(sec => {
-          sec.hidden = sec.id !== 'privacy-page';
-        });
-        const privacy = document.getElementById('privacy-page');
-        if (privacy) privacy.hidden = false;
-        privacy.scrollIntoView({behavior:'smooth'});
-      });
-    }
-  });
-
-  // Back to top button functionality
-  const backToTop = document.getElementById('back-to-top');
-  if (backToTop) {
-    backToTop.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  }
-
-  // Mobile menu functionality
-  const menuToggle = document.getElementById('mobile-menu-toggle');
-  const mainNav = document.getElementById('main-navigation');
-  
-  if (menuToggle && mainNav) {
-    // Toggle mobile menu
-    menuToggle.addEventListener('click', () => {
-      const isExpanded = menuToggle.getAttribute('aria-expanded') === 'true' || false;
-      menuToggle.setAttribute('aria-expanded', !isExpanded);
-      mainNav.setAttribute('aria-hidden', isExpanded);
-      
-      // Toggle mobile menu visibility
-      if (isExpanded) {
-        mainNav.classList.remove('mobile-visible');
-        document.body.style.overflow = '';
-      } else {
-        mainNav.classList.add('mobile-visible');
-        document.body.style.overflow = 'hidden';
-      }
-    });
-
-    // Close mobile menu when clicking outside
-    document.addEventListener('click', (e) => {
-      const isClickInsideNav = mainNav.contains(e.target);
-      const isClickOnToggle = menuToggle === e.target || menuToggle.contains(e.target);
-      
-      if (mainNav.classList.contains('mobile-visible') && !isClickInsideNav && !isClickOnToggle) {
-        mainNav.classList.remove('mobile-visible');
-        menuToggle.setAttribute('aria-expanded', 'false');
-        document.body.style.overflow = '';
-      }
-    });
-  }
-
-  // Handle navigation link clicks
-  const navLinks = document.querySelectorAll('nav a[href^="#"]');
-  navLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
-      const targetId = link.getAttribute('href');
-      if (targetId === '#') return;
-      
-      const targetElement = document.querySelector(targetId);
-      if (targetElement) {
-        e.preventDefault();
-        
-        // Close mobile menu if open
-        if (mainNav && mainNav.classList.contains('mobile-visible')) {
-          mainNav.classList.remove('mobile-visible');
-          if (menuToggle) {
-            menuToggle.setAttribute('aria-expanded', 'false');
-          }
-          document.body.style.overflow = '';
-        }
-        
-        // Smooth scroll to target
-        targetElement.scrollIntoView({ behavior: 'smooth' });
-        
-        // Update URL without page reload
-        if (history.pushState) {
-          history.pushState(null, '', targetId);
-        } else {
-          location.hash = targetId;
-        }
-      }
-    });
-  });
-
-  // Helper function to handle page section navigation
-  const setupPageNavigation = (linkIds, pageId) => {
-    const links = linkIds
-      .map(id => document.getElementById(id))
-      .filter(Boolean);
-    
-    links.forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.querySelectorAll('main > section').forEach(sec => {
-          sec.hidden = sec.id !== pageId;
-        });
-        const targetPage = document.getElementById(pageId);
-        if (targetPage) {
-          targetPage.hidden = false;
-          targetPage.scrollIntoView({ behavior: 'smooth' });
-        }
-      });
-    });
-  };
-
-  // Setup navigation for different sections
-  setupPageNavigation(['guest-terms', 'user-terms'], 'terms-page');
-  setupPageNavigation(['guest-imprint', 'user-imprint'], 'imprint-page');
-  setupPageNavigation(['guest-privacy', 'user-privacy'], 'privacy-page');
-
-  // Registration form handler for guests - removed duplicate declaration
-  // The form submission is already handled earlier in the file
-
-  // Login link handler - removed duplicate declaration
-  // The login link is already handled by the setupPageNavigation function
 
   // Handle drag and drop
   const uploadArea = document.getElementById('upload-area');
@@ -1281,4 +819,3 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-}); // End of DOMContentLoaded

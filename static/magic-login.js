@@ -1,5 +1,5 @@
 // static/magic-login.js — handles magic‑link token UI
-import { showOnly } from './router.js';
+import { showSection } from './nav.js';
 
 let magicLoginSubmitted = false;
 
@@ -73,8 +73,8 @@ export async function initMagicLogin() {
           if (registerPage) registerPage.style.display = 'none';
           
           // Show the user's stream page
-          if (window.showOnly) {
-            window.showOnly('me-page');
+          if (typeof showSection === 'function') {
+            showSection('me-page');
           }
         });
         return;

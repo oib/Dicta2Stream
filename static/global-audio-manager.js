@@ -23,6 +23,7 @@ class GlobalAudioManager {
    * @param {Object} playerInstance - Reference to the player instance
    */
   startPlayback(playerType, uid, playerInstance = null) {
+    console.log(`[GlobalAudioManager] startPlayback called by: ${playerType} for UID: ${uid}`);
     // If the same player is already playing the same UID, allow it
     if (this.currentPlayer === playerType && this.currentUid === uid) {
       return true;

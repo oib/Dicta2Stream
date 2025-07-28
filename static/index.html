@@ -22,7 +22,8 @@
   </style>
   <link rel="modulepreload" href="/static/sound.js" />
   <script src="/static/streams-ui.js?v=3" type="module"></script>
-  <script src="/static/app.js" type="module"></script>
+  <script src="/static/auth.js?v=2" type="module"></script>
+  <script src="/static/app.js?v=5" type="module"></script>
 </head>
 <body>
   <header>
@@ -36,7 +37,7 @@
     <nav id="guest-dashboard" class="dashboard-nav guest-only">
       <a href="#welcome-page" id="guest-welcome">Welcome</a>
       <a href="#stream-page" id="guest-streams">Streams</a>
-      <a href="#account" id="guest-login">Account</a>
+      <a href="#register-page" id="guest-login">Account</a>
     </nav>
 
     <!-- User Dashboard -->
@@ -47,7 +48,7 @@
     </nav>
     <section id="me-page" class="auth-only">
       <div>
-        <h2>Your Stream</h2>
+        <h2 id="your-stream-heading">Your Stream</h2>
       </div>
       <article>
         <p>This is your personal stream. Only you can upload to it.</p>
@@ -187,27 +188,18 @@
 
   <footer>
     <p class="footer-links">
-      <a href="#" id="footer-terms" data-target="terms-page">Terms</a> |
-      <a href="#" id="footer-privacy" data-target="privacy-page">Privacy</a> |
-      <a href="#" id="footer-imprint" data-target="imprint-page">Imprint</a>
+      <a href="#terms-page" id="footer-terms">Terms</a> |
+      <a href="#privacy-page" id="footer-privacy">Privacy</a> |
+      <a href="#imprint-page" id="footer-imprint">Imprint</a>
     </p>
   </footer>
 
-  <script type="module" src="/static/dashboard.js"></script>
-  <script type="module" src="/static/app.js"></script>
+  <script type="module" src="/static/dashboard.js?v=5"></script>
   <!-- Load public streams UI logic -->
   <script type="module" src="/static/streams-ui.js?v=3"></script>
   <!-- Load upload functionality -->
   <script type="module" src="/static/upload.js"></script>
-  <script type="module">
-    import "/static/nav.js?v=2";
-    window.addEventListener("pageshow", () => {
-      const dz = document.querySelector("#user-upload-area");
-      if (dz) dz.classList.remove("uploading");
-      const spinner = document.querySelector("#spinner");
-      if (spinner) spinner.style.display = "none";
-    });
-  </script>
+
   <script type="module">
     import { initMagicLogin } from '/static/magic-login.js';
     const params = new URLSearchParams(window.location.search);
@@ -220,7 +212,7 @@
     }
   </script>
   <script type="module" src="/static/init-personal-stream.js"></script>
-  <!-- Temporary fix for mobile navigation -->
-  <script src="/static/fix-nav.js"></script>
+  <script type="module" src="/static/personal-player.js"></script>
+
 </body>
 </html>

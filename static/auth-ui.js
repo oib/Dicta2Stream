@@ -1,5 +1,5 @@
 // static/auth-ui.js — navigation link and back-button handlers
-import { showOnly } from './router.js';
+import { showSection } from './nav.js';
 
 // Data-target navigation (e.g., at #links)
 export function initNavLinks() {
@@ -10,7 +10,7 @@ export function initNavLinks() {
     if (!a || !linksContainer.contains(a)) return;
     e.preventDefault();
     const target = a.dataset.target;
-    if (target) showOnly(target);
+    if (target) showSection(target);
     const burger = document.getElementById('burger-toggle');
     if (burger && burger.checked) burger.checked = false;
   });
@@ -22,7 +22,7 @@ export function initBackButtons() {
     btn.addEventListener('click', e => {
       e.preventDefault();
       const target = btn.dataset.back;
-      if (target) showOnly(target);
+      if (target) showSection(target);
     });
   });
 }
