@@ -16,27 +16,27 @@ MAGIC_FROM = "noreply@dicta2stream.net"
 MAGIC_DOMAIN = "https://dicta2stream.net"
 DATA_ROOT = Path("./data")
 
-def initialize_user_directory(username: str):
+def initialize_user_directory(uid: str):
     """Initialize user directory with a silent stream.opus file"""
     try:
-        user_dir = DATA_ROOT / username
+        user_dir = DATA_ROOT / uid
         default_stream_path = DATA_ROOT / "stream.opus"
         
-        print(f"[DEBUG] Initializing user directory: {user_dir.absolute()}")
+        # Debug messages disabled
         
         # Create the directory if it doesn't exist
         user_dir.mkdir(parents=True, exist_ok=True)
-        print(f"[DEBUG] Directory created or already exists: {user_dir.exists()}")
+        # Debug messages disabled
         
         # Create stream.opus by copying the default stream.opus file
         user_stream_path = user_dir / "stream.opus"
-        print(f"[DEBUG] Creating stream.opus at: {user_stream_path.absolute()}")
+        # Debug messages disabled
         
         if not user_stream_path.exists():
             if default_stream_path.exists():
                 import shutil
                 shutil.copy2(default_stream_path, user_stream_path)
-                print(f"[DEBUG] Copied default stream.opus to {user_stream_path}")
+                # Debug messages disabled
             else:
                 print(f"[ERROR] Default stream.opus not found at {default_stream_path}")
                 # Fallback: create an empty file to prevent errors
@@ -45,62 +45,69 @@ def initialize_user_directory(username: str):
                 
         return True
     except Exception as e:
-        print(f"Error initializing user directory for {username}: {str(e)}")
+        print(f"Error initializing user directory for {uid}: {str(e)}")
         return False
 
 @router.post("/register")
-def register(request: Request, email: str = Form(...), user: str = Form(...), db: Session = Depends(get_db)):
+def register(request: Request, email: str = Form(...), user: str = Form(...)):
     from sqlalchemy.exc import IntegrityError
     from datetime import datetime
     
-    # Check if user exists by email
-    existing_user_by_email = db.get(User, email)
-    
-    # Check if user exists by username
-    stmt = select(User).where(User.username == user)
-    existing_user_by_username = db.exec(stmt).first()
-    
-    token = str(uuid.uuid4())
-    
-    # Case 1: Email and username match in db - it's a login
-    if existing_user_by_email and existing_user_by_username and existing_user_by_email.email == existing_user_by_username.email:
-        # Update token for existing user (login)
-        existing_user_by_email.token = token
-        existing_user_by_email.token_created = datetime.utcnow()
-        existing_user_by_email.confirmed = False
-        existing_user_by_email.ip = request.client.host
-        db.add(existing_user_by_email)
+    # Use the database session context manager
+    with get_db() as db:
         try:
-            db.commit()
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(status_code=500, detail=f"Database error: {e}")
-        
-        action = "login"
-    
-    # Case 2: Email matches but username does not - only one account per email
-    elif existing_user_by_email and (not existing_user_by_username or existing_user_by_email.email != existing_user_by_username.email):
-        raise HTTPException(status_code=409, detail="📧 This email is already registered with a different username.\nOnly one account per email is allowed.")
-    
-    # Case 3: Email does not match but username is in db - username already taken
-    elif not existing_user_by_email and existing_user_by_username:
-        raise HTTPException(status_code=409, detail="👤 This username is already taken.\nPlease choose a different username.")
-    
-    # Case 4: Neither email nor username exist - create new user
-    elif not existing_user_by_email and not existing_user_by_username:
-        # Register new user
-        new_user = User(email=email, username=user, token=token, confirmed=False, ip=request.client.host)
-        new_quota = UserQuota(uid=email)  # Use email as UID for quota tracking
-        
-        db.add(new_user)
-        db.add(new_quota)
-        
-        try:
-            # First commit the user to the database
-            db.commit()
+            # Check if user exists by email
+            existing_user_by_email = db.get(User, email)
+            
+            # Check if user exists by username
+            existing_user_by_username = db.query(User).filter(User.username == user).first()
+            
+            token = str(uuid.uuid4())
+            action = None
+            
+            # Case 1: Email and username match in db - it's a login
+            if existing_user_by_email and existing_user_by_username and existing_user_by_email.email == existing_user_by_username.email:
+                # Update token for existing user (login)
+                existing_user_by_email.token = token
+                existing_user_by_email.token_created = datetime.utcnow()
+                existing_user_by_email.confirmed = False
+                existing_user_by_email.ip = request.client.host
+                db.add(existing_user_by_email)
+                db.commit()
+                action = "login"
+            
+            # Case 2: Email matches but username does not - only one account per email
+            elif existing_user_by_email and (not existing_user_by_username or existing_user_by_email.email != existing_user_by_username.email):
+                raise HTTPException(status_code=409, detail="📧 This email is already registered with a different username.\nOnly one account per email is allowed.")
+            
+            # Case 3: Email does not match but username is in db - username already taken
+            elif not existing_user_by_email and existing_user_by_username:
+                raise HTTPException(status_code=409, detail="👤 This username is already taken.\nPlease choose a different username.")
+            
+            # Case 4: Neither email nor username exist - create new user
+            elif not existing_user_by_email and not existing_user_by_username:
+                # Register new user
+                new_user = User(email=email, username=user, token=token, confirmed=False, ip=request.client.host)
+                new_quota = UserQuota(uid=email)  # Use email as UID for quota tracking
+                
+                db.add(new_user)
+                db.add(new_quota)
+                db.commit()
+                action = "register"
+                
+                # Initialize user directory after successful registration
+                if not initialize_user_directory(email):
+                    print(f"[WARNING] Failed to initialize user directory for {email}")
+            
+            # If we get here, we've either logged in or registered successfully
+            if action not in ["login", "register"]:
+                raise HTTPException(status_code=400, detail="Invalid registration request")
+                
+            # Store the email for use after the session is committed
+            user_email = email
             
             # Only after successful commit, initialize the user directory
-            initialize_user_directory(user)
+            initialize_user_directory(email)
         except Exception as e:
             db.rollback()
             if isinstance(e, IntegrityError):
@@ -118,15 +125,10 @@ def register(request: Request, email: str = Form(...), user: str = Form(...), db
             else:
                 raise HTTPException(status_code=500, detail=f"Database error: {e}")
         
-        action = "registration"
-    
-    else:
-        # This should not happen, but handle it gracefully
-        raise HTTPException(status_code=500, detail="Unexpected error during registration.")
-    # Send magic link with appropriate message based on action
-    msg = EmailMessage()
-    msg["From"] = MAGIC_FROM
-    msg["To"] = email
+        # Send magic link with appropriate message based on action
+        msg = EmailMessage()
+        msg["From"] = MAGIC_FROM
+        msg["To"] = email
     
     if action == "login":
         msg["Subject"] = "Your magic login link"

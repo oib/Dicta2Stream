@@ -9,7 +9,6 @@ class User(SQLModel, table=True):
     token_created: datetime = Field(default_factory=datetime.utcnow)
     email: str = Field(primary_key=True)
     username: str = Field(unique=True, index=True)
-    display_name: str = Field(default="", nullable=True)
     token: str
     confirmed: bool = False
     ip: str = Field(default="")
@@ -32,7 +31,7 @@ class UploadLog(SQLModel, table=True):
 
 class DBSession(SQLModel, table=True):
     token: str = Field(primary_key=True)
-    user_id: str = Field(foreign_key="user.username")
+    uid: str = Field(foreign_key="user.email")  # This references User.email (primary key)
     ip_address: str
     user_agent: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -45,7 +44,6 @@ class PublicStream(SQLModel, table=True):
     """Stores public stream metadata for all users"""
     uid: str = Field(primary_key=True)
     username: Optional[str] = Field(default=None, index=True)
-    display_name: Optional[str] = Field(default=None)
     storage_bytes: int = 0
     mtime: int = Field(default_factory=lambda: int(datetime.utcnow().timestamp()))
     last_updated: Optional[datetime] = Field(default_factory=datetime.utcnow)
@@ -55,26 +53,26 @@ class PublicStream(SQLModel, table=True):
 
 def get_user_by_uid(uid: str) -> Optional[User]:
     """
-    Retrieve a user by their UID (username).
+    Retrieve a user by their UID (email).
     
-    Note: In this application, the User model uses email as primary key,
-    but we're using username as UID for API routes. This function looks up
-    users by username.
+    Note: In this application, UIDs are consistently email-based.
+    The User model uses email as primary key, and all user references
+    throughout the system use email format.
     
     Args:
-        uid: The username to look up
+        uid: The email to look up
         
     Returns:
         User object if found, None otherwise
     """
     with Session(engine) as session:
-        # First try to find by username (which is what we're using as UID)
-        statement = select(User).where(User.username == uid)
+        # Primary lookup by email (which is what we're using as UID)
+        statement = select(User).where(User.email == uid)
         user = session.exec(statement).first()
         
-        # If not found by username, try by email (for backward compatibility)
-        if not user and '@' in uid:
-            statement = select(User).where(User.email == uid)
+        # Fallback: try by username for legacy compatibility
+        if not user and '@' not in uid:
+            statement = select(User).where(User.username == uid)
             user = session.exec(statement).first()
             
         return user
@@ -85,11 +83,10 @@ def verify_session(db: Session, token: str) -> DBSession:
     from datetime import datetime
     
     # Find the session
-    session = db.exec(
-        select(DBSession)
-        .where(DBSession.token == token)
-        .where(DBSession.is_active == True)  # noqa: E712
-        .where(DBSession.expires_at > datetime.utcnow())
+    session = db.query(DBSession).filter(
+        DBSession.token == token,
+        DBSession.is_active == True,  # noqa: E712
+        DBSession.expires_at > datetime.utcnow()
     ).first()
     
     if not session:

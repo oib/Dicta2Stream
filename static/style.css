@@ -490,7 +490,7 @@ nav#guest-dashboard.dashboard-nav {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
   margin-top: 0.8em;
   opacity: 0;
-  animation: fadeInOut 3.5s both;
+  animation: fadeInOut 15s both;
   font-size: 1.1em;
   pointer-events: auto;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -580,7 +580,7 @@ nav#guest-dashboard.dashboard-nav {
 }
 
 /* Quota meter and uploaded files section */
-#quota-meter {
+#uploaded-files {
   background: var(--surface); /* Match article background */
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -593,19 +593,19 @@ nav#guest-dashboard.dashboard-nav {
   color: var(--text-light);
 }
 
-#quota-meter {
+#uploaded-files {
   transition: all 0.2s ease;
 }
 
-#quota-meter h4 {
+#uploaded-files h3 {
   font-weight: 400;
   text-align: center;
-  margin: 1.5rem 0 0.75rem;
+  margin: 0 0 27px 0;
   color: var(--text);
 }
 
-#quota-meter > h4 {
-  margin-top: 1.5rem;
+#uploaded-files > h3 {
+  margin: 0 0 27px 0;
   text-align: center;
   font-weight: 400;
   color: var(--text);
@@ -732,7 +732,7 @@ nav#guest-dashboard.dashboard-nav {
   border-bottom: none;
 }
 
-#quota-meter:hover {
+#uploaded-files:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
@@ -740,7 +740,7 @@ nav#guest-dashboard.dashboard-nav {
 .quota-meter {
   font-size: 0.9em;
   color: var(--text-muted);
-  margin: 0 0 1rem 0;
+  margin: 1rem 0 0 0;
 }
 
 #file-list {

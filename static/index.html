@@ -21,9 +21,11 @@
     }
   </style>
   <link rel="modulepreload" href="/static/sound.js" />
+  <script src="/static/file-display.js?v=3"></script>
+  <script type="module" src="/static/dashboard.js?v=7"></script>
   <script src="/static/streams-ui.js?v=3" type="module"></script>
-  <script src="/static/auth.js?v=2" type="module"></script>
-  <script src="/static/app.js?v=5" type="module"></script>
+  <script src="/static/auth.js?v=5" type="module"></script>
+  <script src="/static/app.js?v=6" type="module"></script>
 </head>
 <body>
   <header>
@@ -66,12 +68,12 @@
         <button id="logout-button" class="button">🚪 Log Out</button>
       </article>
       
-      <section id="quota-meter" class="auth-only">
-        <p class="quota-meter">Quota: <progress id="quota-bar" value="0" max="100"></progress> <span id="quota-text">0 MB</span></p>
-        <h4>Uploaded Files</h4>
+      <section id="uploaded-files" class="auth-only">
+        <h3>Uploaded Files</h3>
         <ul id="file-list" class="file-list">
           <li>Loading files...</li>
         </ul>
+        <p class="quota-meter">Quota: <progress id="quota-bar" value="0" max="100"></progress> <span id="quota-text">0 MB</span></p>
       </section>
       
       <!-- Account Deletion Section -->
@@ -194,7 +196,6 @@
     </p>
   </footer>
 
-  <script type="module" src="/static/dashboard.js?v=5"></script>
   <!-- Load public streams UI logic -->
   <script type="module" src="/static/streams-ui.js?v=3"></script>
   <!-- Load upload functionality -->

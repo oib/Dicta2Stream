@@ -28,7 +28,7 @@ export function initStreamsUI() {
   
   // Register with global audio manager to handle stop requests from other players
   globalAudioManager.addListener('streams', () => {
-    console.log('[streams-ui] Received stop request from global audio manager');
+    // Debug messages disabled
     stopPlayback();
   });
 }
@@ -79,10 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
 function loadAndRenderStreams() {
   const ul = document.getElementById('stream-list');
   if (!ul) {
-    console.error('[STREAMS-UI] Stream list element not found');
+    // Debug messages disabled
     return;
   }
-  console.log('[STREAMS-UI] loadAndRenderStreams called, shouldForceRefresh:', shouldForceRefresh);
+  // Debug messages disabled
   
   // Don't start a new connection if one is already active and we're not forcing a refresh
   if (activeSSEConnection && !shouldForceRefresh) {
@@ -140,7 +140,7 @@ function loadAndRenderStreams() {
                                window.location.hostname === '127.0.0.1';
       if (isLocalDevelopment || window.DEBUG_STREAMS) {
         const duration = Date.now() - connectionStartTime;
-        console.group('[streams-ui] Connection timeout reached');
+        // Debug messages disabled
         console.log(`Duration: ${duration}ms`);
         console.log('Current time:', new Date().toISOString());
         console.log('Streams received:', streams.length);
@@ -203,18 +203,18 @@ function loadAndRenderStreams() {
     
     // Process the stream
     function processStream({ done, value }) {
-      console.log('[STREAMS-UI] processStream called with done:', done);
+      // Debug messages disabled
       if (done) {
-        console.log('[STREAMS-UI] Stream processing complete');
+        // Debug messages disabled
         // Process any remaining data in the buffer
         if (buffer.trim()) {
-          console.log('[STREAMS-UI] Processing remaining buffer data');
+          // Debug messages disabled
           try {
             const data = JSON.parse(buffer);
-            console.log('[STREAMS-UI] Parsed data from buffer:', data);
+            // Debug messages disabled
             processSSEEvent(data);
           } catch (e) {
-            console.error('[STREAMS-UI] Error parsing buffer data:', e);
+            // Debug messages disabled
           }
         }
         return;
@@ -237,7 +237,7 @@ function loadAndRenderStreams() {
             const data = JSON.parse(dataMatch[1]);
             processSSEEvent(data);
           } catch (e) {
-            console.error('[streams-ui] Error parsing event data:', e, 'Event:', event);
+            // Debug messages disabled
           }
         }
       }
@@ -298,7 +298,7 @@ function loadAndRenderStreams() {
   
   // Function to process SSE events
   function processSSEEvent(data) {
-    console.log('[STREAMS-UI] Processing SSE event:', data);
+    // Debug messages disabled
     if (data.end) {
       if (streams.length === 0) {
         ul.innerHTML = '<li>No active streams.</li>';
@@ -356,7 +356,7 @@ function loadAndRenderStreams() {
   
   // Function to handle SSE errors
   function handleSSEError(error) {
-    console.error('[streams-ui] SSE error:', error);
+    // Debug messages disabled
     
     // Only show error if we haven't already loaded any streams
     if (streams.length === 0) {
@@ -386,11 +386,11 @@ function loadAndRenderStreams() {
 export function renderStreamList(streams) {
   const ul = document.getElementById('stream-list');
   if (!ul) {
-    console.warn('[STREAMS-UI] renderStreamList: #stream-list not found');
+    // Debug messages disabled
     return;
   }
-  console.log('[STREAMS-UI] Rendering stream list with', streams.length, 'streams');
-  console.debug('[STREAMS-UI] Streams data:', streams);
+  // Debug messages disabled
+  // Debug messages disabled
   if (Array.isArray(streams)) {
     if (streams.length) {
       // Sort by mtime descending (most recent first)
@@ -409,10 +409,10 @@ export function renderStreamList(streams) {
     }
   } else {
     ul.innerHTML = '<li>Error: Invalid stream data.</li>';
-    console.error('[streams-ui] renderStreamList: streams is not an array', streams);
+    // Debug messages disabled
   }
   highlightActiveProfileLink();
-  console.debug('[streams-ui] renderStreamList complete');
+  // Debug messages disabled
 }
 
 export function highlightActiveProfileLink() {
@@ -463,12 +463,7 @@ function escapeHtml(unsafe) {
     .replace(/'/g, "&#039;");
 }
 
-// Function to update play/pause button state
-function updatePlayPauseButton(button, isPlaying) {
-  if (!button) return;
-  button.textContent = isPlaying ? '⏸️' : '▶️';
-  button.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
-}
+
 
 // Audio context for Web Audio API
 let audioContext = null;
@@ -492,7 +487,7 @@ function getAudioContext() {
 
 // Stop current playback completely
 function stopPlayback() {
-  console.log('[streams-ui] Stopping playback');
+  // Debug messages disabled
   
   // Stop Web Audio API if active
   if (audioSource) {
@@ -561,120 +556,28 @@ function stopPlayback() {
   currentlyPlayingAudio = null;
 }
 
-// Load and play audio using HTML5 Audio element for Opus
-async function loadAndPlayAudio(uid, playPauseBtn) {
-  // If we already have an audio element for this UID and it's paused, just resume it
-  if (audioElement && currentUid === uid && audioElement.paused) {
-    try {
-      await audioElement.play();
-      isPlaying = true;
-      updatePlayPauseButton(playPauseBtn, true);
-      return;
-    } catch (error) {
-      // Fall through to reload if resume fails
-    }
-  }
-  
-  // Stop any current playback
-  stopPlayback();
-  
-  // Notify global audio manager that streams player is starting
-  globalAudioManager.startPlayback('streams', uid);
-  
-  // Update UI
-  updatePlayPauseButton(playPauseBtn, true);
-  currentlyPlayingButton = playPauseBtn;
-  currentUid = uid;
-  
-  try {
-    // Create a new audio element with the correct MIME type
-    const audioUrl = `/audio/${encodeURIComponent(uid)}/stream.opus`;
-    
-    // Create a new audio element with a small delay to prevent race conditions
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    audioElement = new Audio(audioUrl);
-    audioElement.preload = 'auto';
-    audioElement.crossOrigin = 'anonymous'; // Important for CORS
-    
-    // Set up event handlers with proper binding
-    const onPlay = () => {
-      isPlaying = true;
-      updatePlayPauseButton(playPauseBtn, true);
-    };
-    
-    const onPause = () => {
-      isPlaying = false;
-      updatePlayPauseButton(playPauseBtn, false);
-    };
-    
-    const onEnded = () => {
-      isPlaying = false;
-      cleanupAudio();
-    };
-    
-    const onError = (e) => {
-      // Ignore errors from previous audio elements that were cleaned up
-      if (!audioElement || audioElement.readyState === 0) {
-        return;
-      }
-      
-      isPlaying = false;
-      updatePlayPauseButton(playPauseBtn, false);
-      
-      // Don't show error to user for aborted requests
-      if (audioElement.error && audioElement.error.code === MediaError.MEDIA_ERR_ABORTED) {
-        return;
-      }
-      
-      // Show error to user for other errors
-      if (typeof showToast === 'function') {
-        showToast('Error playing audio. The format may not be supported.', 'error');
-      }
-    };
-    
-    // Add event listeners
-    audioElement.addEventListener('play', onPlay, { once: true });
-    audioElement.addEventListener('pause', onPause);
-    audioElement.addEventListener('ended', onEnded, { once: true });
-    audioElement.addEventListener('error', onError);
-    
-    // Store references for cleanup
-    audioElement._eventHandlers = { onPlay, onPause, onEnded, onError };
-    
-    // Start playback with error handling
-    try {
-      const playPromise = audioElement.play();
-      
-      if (playPromise !== undefined) {
-        await playPromise.catch(error => {
-          // Ignore abort errors when switching between streams
-          if (error.name !== 'AbortError') {
-            throw error;
-          }
-        });
-      }
-      
-      isPlaying = true;
-    } catch (error) {
-      // Only log unexpected errors
-      if (error.name !== 'AbortError') {
-        console.error('[streams-ui] Error during playback:', error);
-        throw error;
-      }
-    }
-    
-  } catch (error) {
-    console.error('[streams-ui] Error loading/playing audio:', error);
-    if (playPauseBtn) {
-      updatePlayPauseButton(playPauseBtn, false);
-    }
-    
-    // Only show error if it's not an abort error
-    if (error.name !== 'AbortError' && typeof showToast === 'function') {
-      showToast('Error playing audio. Please try again.', 'error');
-    }
-  }
+// --- Shared Audio Player Integration ---
+import { SharedAudioPlayer } from './shared-audio-player.js';
+
+function getStreamUrl(uid) {
+  return `/audio/${encodeURIComponent(uid)}/stream.opus`;
+}
+
+function updatePlayPauseButton(button, isPlaying) {
+  if (button) button.textContent = isPlaying ? '⏸️' : '▶️';
+  // Optionally, update other UI elements here
+}
+// Only this definition should remain; remove any other updatePlayPauseButton functions.
+
+const streamsPlayer = new SharedAudioPlayer({
+  playerType: 'streams',
+  getStreamUrl,
+  onUpdateButton: updatePlayPauseButton
+});
+
+// Load and play audio using SharedAudioPlayer
+function loadAndPlayAudio(uid, playPauseBtn) {
+  streamsPlayer.play(uid, playPauseBtn);
 }
 
 // Handle audio ended event
@@ -688,7 +591,7 @@ function handleAudioEnded() {
 
 // Clean up audio resources
 function cleanupAudio() {
-  console.log('[streams-ui] Cleaning up audio resources');
+  // Debug messages disabled
   
   // Clean up Web Audio API resources if they exist
   if (audioSource) {
@@ -756,32 +659,14 @@ if (streamList) {
     e.preventDefault();
   
     const uid = playPauseBtn.dataset.uid;
-    if (!uid) {
-      return;
+    if (!uid) return;
+
+    // Toggle play/pause using SharedAudioPlayer
+    if (streamsPlayer.currentUid === uid && streamsPlayer.audioElement && !streamsPlayer.audioElement.paused && !streamsPlayer.audioElement.ended) {
+      streamsPlayer.pause();
+    } else {
+      await loadAndPlayAudio(uid, playPauseBtn);
     }
-    
-    // If clicking the currently playing button, toggle pause/play
-    if (currentUid === uid) {
-      if (isPlaying) {
-        await audioElement.pause();
-        isPlaying = false;
-        updatePlayPauseButton(playPauseBtn, false);
-      } else {
-        try {
-          await audioElement.play();
-          isPlaying = true;
-          updatePlayPauseButton(playPauseBtn, true);
-        } catch (error) {
-          // If resume fails, try reloading the audio
-          await loadAndPlayAudio(uid, playPauseBtn);
-        }
-      }
-      return;
-    }
-    
-    // If a different stream is playing, stop it and start the new one
-    stopPlayback();
-    await loadAndPlayAudio(uid, playPauseBtn);
   });
 }
 

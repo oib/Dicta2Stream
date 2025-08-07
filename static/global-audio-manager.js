@@ -23,7 +23,7 @@ class GlobalAudioManager {
    * @param {Object} playerInstance - Reference to the player instance
    */
   startPlayback(playerType, uid, playerInstance = null) {
-    console.log(`[GlobalAudioManager] startPlayback called by: ${playerType} for UID: ${uid}`);
+    // Debug messages disabled
     // If the same player is already playing the same UID, allow it
     if (this.currentPlayer === playerType && this.currentUid === uid) {
       return true;
@@ -38,7 +38,7 @@ class GlobalAudioManager {
     this.currentPlayer = playerType;
     this.currentUid = uid;
     
-    console.log(`Global Audio Manager: ${playerType} player started playing UID: ${uid}`);
+    // Debug messages disabled
     return true;
   }
 
@@ -48,7 +48,7 @@ class GlobalAudioManager {
    */
   stopPlayback(playerType) {
     if (this.currentPlayer === playerType) {
-      console.log(`Global Audio Manager: ${playerType} player stopped`);
+      // Debug messages disabled
       this.currentPlayer = null;
       this.currentUid = null;
     }
@@ -93,7 +93,7 @@ class GlobalAudioManager {
    * Notify a specific player type to stop
    */
   notifyStop(playerType) {
-    console.log(`Global Audio Manager: Notifying ${playerType} player to stop`);
+    // Debug messages disabled
     this.listeners.forEach(listener => {
       if (listener.playerType === playerType) {
         try {

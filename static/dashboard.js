@@ -12,13 +12,14 @@ function getCookie(name) {
 
 // Global state
 let isLoggingOut = false;
+let dashboardInitialized = false;
 
 async function handleLogout(event) {
-  console.log('[LOGOUT] Logout initiated');
+  // Debug messages disabled
   
   // Prevent multiple simultaneous logout attempts
   if (isLoggingOut) {
-    console.log('[LOGOUT] Logout already in progress');
+    // Debug messages disabled
     return;
   }
   isLoggingOut = true;
@@ -34,11 +35,11 @@ async function handleLogout(event) {
     const authToken = localStorage.getItem('authToken');
     
     // 1. Clear all client-side state first (most important)
-    console.log('[LOGOUT] Clearing all client-side state');
+    // Debug messages disabled
     
     // Clear localStorage and sessionStorage
     const storageKeys = [
-      'uid', 'uid_time', 'confirmed_uid', 'last_page',
+      'uid', 'uid_time', 'last_page',
       'isAuthenticated', 'authToken', 'user', 'token', 'sessionid', 'sessionId'
     ];
     
@@ -49,22 +50,22 @@ async function handleLogout(event) {
     
     // Get all current cookies for debugging
     const allCookies = document.cookie.split(';');
-    console.log('[LOGOUT] Current cookies before clearing:', allCookies);
+    // Debug messages disabled
     
     // Clear ALL cookies (aggressive approach)
     allCookies.forEach(cookie => {
       const [name] = cookie.trim().split('=');
       if (name) {
         const cookieName = name.trim();
-        console.log(`[LOGOUT] Clearing cookie: ${cookieName}`);
+        // Debug messages disabled
         
         // Try multiple clearing strategies to ensure cookies are removed
         const clearStrategies = [
-          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`,
-          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`,
-          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname};`,
-          `${cookieName}=; max-age=0; path=/;`,
-          `${cookieName}=; max-age=0; path=/; domain=${window.location.hostname};`
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax;`,
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}; SameSite=Lax;`,
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname}; SameSite=Lax;`,
+          `${cookieName}=; max-age=0; path=/; SameSite=Lax;`,
+          `${cookieName}=; max-age=0; path=/; domain=${window.location.hostname}; SameSite=Lax;`
         ];
         
         clearStrategies.forEach(strategy => {
@@ -75,7 +76,7 @@ async function handleLogout(event) {
     
     // Verify cookies are cleared
     const remainingCookies = document.cookie.split(';').filter(c => c.trim());
-    console.log('[LOGOUT] Remaining cookies after clearing:', remainingCookies);
+    // Debug messages disabled
     
     // Update UI state
     document.body.classList.remove('authenticated', 'logged-in');
@@ -84,7 +85,7 @@ async function handleLogout(event) {
     // 2. Try to invalidate server session (non-blocking)
     if (authToken) {
       try {
-        console.log('[LOGOUT] Attempting to invalidate server session');
+        // Debug messages disabled
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
         
@@ -99,18 +100,18 @@ async function handleLogout(event) {
         });
         
         clearTimeout(timeoutId);
-        console.log('[LOGOUT] Server session invalidation completed');
+        // Debug messages disabled
       } catch (error) {
-        console.warn('[LOGOUT] Server session invalidation failed (non-critical):', error);
+        // Debug messages disabled
       }
     }
     
     // 3. Final redirect
-    console.log('[LOGOUT] Redirecting to home page');
+    // Debug messages disabled
     window.location.href = '/?logout=' + Date.now();
 
   } catch (error) {
-    console.error('[LOGOUT] Unexpected error during logout:', error);
+    // Debug messages disabled
     if (window.showToast) {
       showToast('Logout failed. Please try again.');
     }
@@ -138,7 +139,7 @@ async function handleDeleteAccount() {
     }
 
     // Show loading state
-    const deleteButton = document.getElementById('delete-account-button');
+    const deleteButton = document.getElementById('delete-account-from-privacy');
     const originalText = deleteButton.textContent;
     deleteButton.disabled = true;
     deleteButton.textContent = 'Deleting...';
@@ -162,7 +163,7 @@ async function handleDeleteAccount() {
       
       // Clear all authentication-related data from localStorage
       const keysToRemove = [
-        'uid', 'uid_time', 'confirmed_uid', 'last_page',
+        'uid', 'uid_time', 'last_page',
         'isAuthenticated', 'authToken', 'user', 'token', 'sessionid'
       ];
       
@@ -180,11 +181,11 @@ async function handleDeleteAccount() {
       // Clear all cookies using multiple strategies
       const clearCookie = (cookieName) => {
         const clearStrategies = [
-          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`,
-          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`,
-          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname};`,
-          `${cookieName}=; max-age=0; path=/;`,
-          `${cookieName}=; max-age=0; path=/; domain=${window.location.hostname};`
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax;`,
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}; SameSite=Lax;`,
+          `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname}; SameSite=Lax;`,
+          `${cookieName}=; max-age=0; path=/; SameSite=Lax;`,
+          `${cookieName}=; max-age=0; path=/; domain=${window.location.hostname}; SameSite=Lax;`
         ];
         
         clearStrategies.forEach(strategy => {
@@ -224,7 +225,7 @@ async function handleDeleteAccount() {
     showToast(`Failed to delete account: ${error.message}`);
     
     // Reset button state
-    const deleteButton = document.getElementById('delete-account-button');
+    const deleteButton = document.getElementById('delete-account-from-privacy');
     if (deleteButton) {
       deleteButton.disabled = false;
       deleteButton.textContent = '🗑️ Delete Account';
@@ -251,33 +252,37 @@ function debugElementVisibility(elementId) {
     parentDisplay: el.parentElement ? window.getComputedStyle(el.parentElement).display : 'no-parent',
     parentVisibility: el.parentElement ? window.getComputedStyle(el.parentElement).visibility : 'no-parent',
     rect: el.getBoundingClientRect()
-  };
+  }
 }
+
+// Make updateQuotaDisplay available globally
+window.updateQuotaDisplay = updateQuotaDisplay;
 
 /**
  * Initialize the dashboard and handle authentication state
  */
-async function initDashboard() {
-  console.log('[DASHBOARD] Initializing dashboard...');
+async function initDashboard(uid = null) {
+  // Debug messages disabled
   try {
     const guestDashboard = document.getElementById('guest-dashboard');
     const userDashboard = document.getElementById('user-dashboard');
     const userUpload = document.getElementById('user-upload-area');
     const logoutButton = document.getElementById('logout-button');
-    const deleteAccountButton = document.getElementById('delete-account-button');
+    const deleteAccountButton = document.getElementById('delete-account-from-privacy');
     const fileList = document.getElementById('file-list');
 
-    if (logoutButton) {
-      logoutButton.addEventListener('click', handleLogout);
-    }
-    if (deleteAccountButton) {
-      deleteAccountButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleDeleteAccount();
-      });
+    // Only attach event listeners once to prevent duplicates
+    if (!dashboardInitialized) {
+      if (logoutButton) {
+        logoutButton.addEventListener('click', handleLogout);
+      }
+      // Delete account button is handled by auth.js delegated event listener
+      // Removed duplicate event listener to prevent double confirmation dialogs
+      dashboardInitialized = true;
     }
 
-    const isAuthenticated = (document.cookie.includes('isAuthenticated=true') || localStorage.getItem('isAuthenticated') === 'true');
+    const effectiveUid = uid || getCookie('uid') || localStorage.getItem('uid');
+    const isAuthenticated = !!effectiveUid;
 
     if (isAuthenticated) {
       document.body.classList.add('authenticated');
@@ -286,9 +291,11 @@ async function initDashboard() {
       if (userUpload) userUpload.style.display = 'block';
       if (guestDashboard) guestDashboard.style.display = 'none';
 
-      const uid = getCookie('uid') || localStorage.getItem('uid');
-      if (uid && window.fetchAndDisplayFiles) {
-        await window.fetchAndDisplayFiles(uid);
+      if (window.fetchAndDisplayFiles) {
+        // Use email-based UID for file operations if available, fallback to effectiveUid
+        const fileOperationUid = localStorage.getItem('uid') || effectiveUid;  // uid is now email-based
+        // Debug messages disabled
+        await window.fetchAndDisplayFiles(fileOperationUid);
       }
     } else {
       document.body.classList.remove('authenticated');
@@ -297,7 +304,7 @@ async function initDashboard() {
       if (userDashboard) userDashboard.style.display = 'none';
       if (userUpload) userUpload.style.display = 'none';
       if (fileList) {
-        fileList.innerHTML = `<li class="error-message">Please <a href="/#login" class="login-link">log in</a> to view your files.</li>`;
+        fileList.innerHTML = `<li>Please <a href="/#login" class="login-link">log in</a> to view your files.</li>`;
       }
     }
   } catch (e) {
@@ -326,11 +333,11 @@ async function fetchAndDisplayFiles(uid) {
   const fileList = document.getElementById('file-list');
   
   if (!fileList) {
-    console.error('[FILES] File list element not found');
+    // Debug messages disabled
     return;
   }
   
-  console.log(`[FILES] Fetching files for user: ${uid}`);
+  // Debug messages disabled
   fileList.innerHTML = '<li class="loading-message">Loading your files...</li>';
   
   // Prepare headers with auth token if available
@@ -344,44 +351,44 @@ async function fetchAndDisplayFiles(uid) {
     headers['Authorization'] = `Bearer ${authToken}`;
   }
   
-  console.log('[FILES] Making request to /me with headers:', headers);
+  // Debug messages disabled
   
   try {
     // The backend should handle authentication via session cookies
     // We include the auth token in headers if available, but don't rely on it for auth
-    console.log(`[FILES] Making request to /me/${uid} with credentials...`);
-    const response = await fetch(`/me/${uid}`, {
+    // Debug messages disabled
+    const response = await fetch(`/user-files/${uid}`, {
       method: 'GET',
       credentials: 'include',  // Important: include cookies for session auth
       headers: headers
     });
     
-    console.log('[FILES] Response status:', response.status);
-    console.log('[FILES] Response headers:', Object.fromEntries([...response.headers.entries()]));
+    // Debug messages disabled
+    // Debug messages disabled
     
     // Get response as text first to handle potential JSON parsing errors
     const responseText = await response.text();
-    console.log('[FILES] Raw response text:', responseText);
+    // Debug messages disabled
     
     // Parse the JSON response
     let responseData = {};
     if (responseText && responseText.trim() !== '') {
       try {
         responseData = JSON.parse(responseText);
-        console.log('[FILES] Successfully parsed JSON response:', responseData);
+        // Debug messages disabled
       } catch (e) {
-        console.error('[FILES] Failed to parse JSON response. Response text:', responseText);
-        console.error('[FILES] Error details:', e);
+        // Debug messages disabled
+        // Debug messages disabled
         
         // If we have a non-JSON response but the status is 200, try to handle it
         if (response.ok) {
-          console.warn('[FILES] Non-JSON response with 200 status, treating as empty response');
+          // Debug messages disabled
         } else {
           throw new Error(`Invalid JSON response from server: ${e.message}`);
         }
       }
     } else {
-      console.log('[FILES] Empty response received, using empty object');
+      // Debug messages disabled
     }
     
     // Note: Authentication is handled by the parent component
@@ -390,13 +397,13 @@ async function fetchAndDisplayFiles(uid) {
     if (response.ok) {
       // Check if the response has the expected format
       if (!responseData || !Array.isArray(responseData.files)) {
-        console.error('[FILES] Invalid response format, expected {files: [...]}:', responseData);
+        // Debug messages disabled
         fileList.innerHTML = '<li>Error: Invalid response from server</li>';
         return;
       }
       
       const files = responseData.files;
-      console.log('[FILES] Files array:', files);
+      // Debug messages disabled
       
       if (files.length === 0) {
         fileList.innerHTML = '<li class="no-files">No files uploaded yet.</li>';
@@ -406,68 +413,9 @@ async function fetchAndDisplayFiles(uid) {
       // Clear the loading message
       fileList.innerHTML = '';
       
-      // Track displayed files to prevent duplicates using stored filenames as unique identifiers
-      const displayedFiles = new Set();
-      
-      // Add each file to the list
-      files.forEach(file => {
-        // Get the stored filename (with UUID) - this is our unique identifier
-        const storedFileName = file.stored_name || file.name || file;
-        
-        // Skip if we've already displayed this file
-        if (displayedFiles.has(storedFileName)) {
-          console.log(`[FILES] Skipping duplicate file with stored name: ${storedFileName}`);
-          return;
-        }
-        
-        displayedFiles.add(storedFileName);
-        
-        const fileExt = storedFileName.split('.').pop().toLowerCase();
-        const fileUrl = `/data/${uid}/${encodeURIComponent(storedFileName)}`;
-        const fileSize = file.size ? formatFileSize(file.size) : 'N/A';
-        
-        const listItem = document.createElement('li');
-        listItem.className = 'file-item';
-        listItem.setAttribute('data-uid', uid);
-        
-        // Create file icon based on file extension
-        let fileIcon = '📄'; // Default icon
-        if (['mp3', 'wav', 'ogg', 'm4a', 'opus'].includes(fileExt)) {
-          fileIcon = '🎵';
-        } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt)) {
-          fileIcon = '🖼️';
-        } else if (['pdf', 'doc', 'docx', 'txt'].includes(fileExt)) {
-          fileIcon = '📄';
-        }
-        
-        // Use original_name if available, otherwise use the stored filename for display
-        const displayName = file.original_name || storedFileName;
-        
-        listItem.innerHTML = `
-          <div class="file-info">
-            <span class="file-icon">${fileIcon}</span>
-            <a href="${fileUrl}" class="file-name" target="_blank" rel="noopener noreferrer">
-              ${displayName}
-            </a>
-            <span class="file-size">${fileSize}</span>
-          </div>
-          <div class="file-actions">
-            <a href="${fileUrl}" class="download-button" download>
-              <span class="button-icon">⬇️</span>
-              <span class="button-text">Download</span>
-            </a>
-            <button class="delete-file" data-filename="${storedFileName}" data-original-name="${displayName}">
-              <span class="button-icon">🗑️</span>
-              <span class="button-text">Delete</span>
-            </button>
-          </div>
-        `;
-        
-        // Delete button handler will be handled by event delegation
-        // No need to add individual event listeners here
-        
-        fileList.appendChild(listItem);
-      });
+    // Use the new global function to render the files
+    window.displayUserFiles(uid, files);
+
     } else {
       // Handle non-OK responses
       if (response.status === 401) {
@@ -482,10 +430,10 @@ async function fetchAndDisplayFiles(uid) {
             Error loading files (${response.status}). Please try again later.
           </li>`;
       }
-      console.error('[FILES] Server error:', response.status, response.statusText);
+      // Debug messages disabled
     }
   } catch (error) {
-    console.error('[FILES] Error fetching files:', error);
+    // Debug messages disabled
     const fileList = document.getElementById('file-list');
     if (fileList) {
       fileList.innerHTML = `
@@ -495,6 +443,69 @@ async function fetchAndDisplayFiles(uid) {
     }
   }
 }
+
+// Function to update the quota display
+async function updateQuotaDisplay(uid) {
+  // Debug messages disabled
+  try {
+    const authToken = localStorage.getItem('authToken');
+    const headers = { 
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+    
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    
+    // Debug messages disabled
+    // Fetch user info which includes quota
+    const response = await fetch(`/me/${uid}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: headers
+    });
+    
+    // Debug messages disabled
+    if (response.ok) {
+      const userData = await response.json();
+      // Debug messages disabled
+      
+      // Update the quota display
+      const quotaText = document.getElementById('quota-text');
+      const quotaBar = document.getElementById('quota-bar');
+      
+      // Debug messages disabled
+      // Debug messages disabled
+      
+      if (quotaText && userData.quota) {
+        const usedMB = (userData.quota.used_bytes / (1024 * 1024)).toFixed(2);
+        const maxMB = (userData.quota.max_bytes / (1024 * 1024)).toFixed(2);
+        const percentage = userData.quota.percentage || 0;
+        
+        // Debug messages disabled
+        
+        const quotaDisplayText = `${usedMB} MB of ${maxMB} MB (${percentage}%)`;
+        quotaText.textContent = quotaDisplayText;
+        // Debug messages disabled
+        
+        if (quotaBar) {
+          quotaBar.value = percentage;
+          // Debug messages disabled
+        }
+      } else {
+        // Debug messages disabled
+      }
+    } else {
+      // Debug messages disabled
+    }
+  } catch (error) {
+    // Debug messages disabled
+  }
+}
+
+// Make fetchAndDisplayFiles globally accessible
+window.fetchAndDisplayFiles = fetchAndDisplayFiles;
 
 // Function to handle file deletion
 async function deleteFile(uid, fileName, listItem, displayName = '') {
@@ -519,7 +530,7 @@ async function deleteFile(uid, fileName, listItem, displayName = '') {
       throw new Error('User not authenticated. Please log in again.');
     }
     
-    console.log(`[DELETE] Attempting to delete file: ${fileName} for user: ${uid}`);
+    // Debug messages disabled
     const authToken = localStorage.getItem('authToken');
     const headers = { 'Content-Type': 'application/json' };
     
@@ -553,7 +564,7 @@ async function deleteFile(uid, fileName, listItem, displayName = '') {
       fileList.innerHTML = '<li class="no-files">No files uploaded yet.</li>';
     }
   } catch (error) {
-    console.error('[DELETE] Error deleting file:', error);
+    // Debug messages disabled
     showToast(`Error deleting "${fileToDelete}": ${error.message}`, 'error');
     
     // Reset the button state if there was an error
@@ -575,7 +586,7 @@ function initFileUpload() {
   const fileInput = document.getElementById('fileInputUser');
   
   if (!uploadArea || !fileInput) {
-    console.warn('[UPLOAD] Required elements not found for file upload');
+    // Debug messages disabled
     return;
   }
   
@@ -630,7 +641,7 @@ function initFileUpload() {
       }
       
     } catch (error) {
-      console.error('[UPLOAD] Error uploading file:', error);
+      // Debug messages disabled
       showToast(`Upload failed: ${error.message}`, 'error');
     } finally {
       // Reset file input and restore upload area text
@@ -679,9 +690,15 @@ function initFileUpload() {
 }
 
 // Main initialization when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Initialize dashboard components
-  initDashboard();  // initFileUpload is called from within initDashboard
+  await initDashboard();  // initFileUpload is called from within initDashboard
+  
+  // Update quota display if user is logged in
+  const uid = localStorage.getItem('uid');
+  if (uid) {
+    updateQuotaDisplay(uid);
+  }
   
   // Delegated event listener for clicks on the document
   document.addEventListener('click', (e) => {
@@ -701,10 +718,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const listItem = deleteButton.closest('.file-item');
       if (!listItem) return;
 
-      const uid = localStorage.getItem('uid') || localStorage.getItem('confirmed_uid');
+      const uid = localStorage.getItem('uid');
       if (!uid) {
         showToast('You need to be logged in to delete files', 'error');
-        console.error('[DELETE] No UID found in localStorage');
+        // Debug messages disabled
         return;
       }
 
@@ -715,8 +732,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Make fetchAndDisplayFiles available globally
+  // Make dashboard functions available globally
   window.fetchAndDisplayFiles = fetchAndDisplayFiles;
+  window.initDashboard = initDashboard;
   
   // Login/Register (guest)
   const regForm = document.getElementById('register-form');
@@ -757,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
             regForm.reset();
           } else {
             showToast(`Error: ${data.detail || 'Unknown error occurred'}`, 'error');
-            console.error('Registration failed:', data);
+            // Debug messages disabled
           }
         } catch (parseError) {
           console.error('Error parsing response:', parseError);

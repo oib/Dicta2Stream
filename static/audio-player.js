@@ -16,6 +16,14 @@ export class AudioPlayer {
     this.lastPlayTime = 0;
     this.isLoading = false;
     this.loadTimeout = null; // For tracking loading timeouts
+    this.retryCount = 0;
+    this.maxRetries = 3;
+    this.retryDelay = 3000; // 3 seconds
+    this.buffering = false;
+    this.bufferRetryTimeout = null;
+    this.lastLoadTime = 0;
+    this.minLoadInterval = 2000; // 2 seconds between loads
+    this.pendingLoad = false;
     
     // Create a single audio element that we'll reuse
     this.audioElement = new Audio();
@@ -26,6 +34,14 @@ export class AudioPlayer {
     this.loadAndPlay = this.loadAndPlay.bind(this);
     this.stop = this.stop.bind(this);
     this.cleanup = this.cleanup.bind(this);
+    this.handlePlayError = this.handlePlayError.bind(this);
+    this.handleStalled = this.handleStalled.bind(this);
+    this.handleWaiting = this.handleWaiting.bind(this);
+    this.handlePlaying = this.handlePlaying.bind(this);
+    this.handleEnded = this.handleEnded.bind(this);
+    
+    // Set up event listeners
+    this.setupEventListeners();
     
     // Register with global audio manager to handle stop requests from other players
     globalAudioManager.addListener('personal', () => {
@@ -63,14 +79,41 @@ export class AudioPlayer {
   }
 
   async loadAndPlay(uid, button) {
+    const now = Date.now();
+    
+    // Prevent rapid successive load attempts
+    if (this.pendingLoad || (now - this.lastLoadTime < this.minLoadInterval)) {
+      console.log('[AudioPlayer] Skipping duplicate load request');
+      return;
+    }
+    
     // Validate UID exists and is in correct format
     if (!uid) {
       this.handleError(button, 'No UID provided for audio playback');
       return;
     }
-
-    if (!this.isValidUuid(uid)) {
-      this.handleError(button, `Invalid UID format: ${uid}. Expected UUID v4 format.`);
+    
+    // For logging purposes
+    const requestId = Math.random().toString(36).substr(2, 8);
+    console.log(`[AudioPlayer] Load request ${requestId} for UID: ${uid}`);
+    
+    this.pendingLoad = true;
+    this.lastLoadTime = now;
+    
+    // If we're in the middle of loading, check if it's for the same UID
+    if (this.isLoading) {
+      // If same UID, ignore duplicate request
+      if (this.currentUid === uid) {
+        console.log(`[AudioPlayer] Already loading this UID, ignoring duplicate request: ${uid}`);
+        this.pendingLoad = false;
+        return;
+      }
+      // If different UID, queue the new request
+      console.log(`[AudioPlayer] Already loading, queuing request for UID: ${uid}`);
+      setTimeout(() => {
+        this.pendingLoad = false;
+        this.loadAndPlay(uid, button);
+      }, 500);
       return;
     }
     
@@ -170,8 +213,10 @@ export class AudioPlayer {
 
       // Set the source URL with proper encoding and cache-busting timestamp
       // Using the format: /audio/{uid}/stream.opus?t={timestamp}
-      const timestamp = new Date().getTime();
+      // Only update timestamp if we're loading a different UID or after a retry
+      const timestamp = this.retryCount > 0 ? new Date().getTime() : this.lastLoadTime;
       this.audioUrl = `/audio/${encodeURIComponent(uid)}/stream.opus?t=${timestamp}`;
+      console.log(`[AudioPlayer] Loading audio from URL: ${this.audioUrl} (attempt ${this.retryCount + 1}/${this.maxRetries})`);
       console.log('Loading audio from URL:', this.audioUrl);
       this.audioElement.src = this.audioUrl;
       
@@ -313,9 +358,149 @@ export class AudioPlayer {
   }
   
   /**
+   * Set up event listeners for the audio element
+   */
+  setupEventListeners() {
+    if (!this.audioElement) return;
+    
+    // Remove any existing listeners to prevent duplicates
+    this.audioElement.removeEventListener('error', this.handlePlayError);
+    this.audioElement.removeEventListener('stalled', this.handleStalled);
+    this.audioElement.removeEventListener('waiting', this.handleWaiting);
+    this.audioElement.removeEventListener('playing', this.handlePlaying);
+    this.audioElement.removeEventListener('ended', this.handleEnded);
+    
+    // Add new listeners
+    this.audioElement.addEventListener('error', this.handlePlayError);
+    this.audioElement.addEventListener('stalled', this.handleStalled);
+    this.audioElement.addEventListener('waiting', this.handleWaiting);
+    this.audioElement.addEventListener('playing', this.handlePlaying);
+    this.audioElement.addEventListener('ended', this.handleEnded);
+  }
+
+  /**
+   * Handle play errors
+   */
+  handlePlayError(event) {
+    console.error('[AudioPlayer] Playback error:', {
+      event: event.type,
+      error: this.audioElement.error,
+      currentTime: this.audioElement.currentTime,
+      readyState: this.audioElement.readyState,
+      networkState: this.audioElement.networkState,
+      src: this.audioElement.src
+    });
+    
+    this.isPlaying = false;
+    this.buffering = false;
+    this.pendingLoad = false;
+    
+    if (this.currentButton) {
+      this.updateButtonState(this.currentButton, 'error');
+    }
+    
+    // Auto-retry logic
+    if (this.retryCount < this.maxRetries) {
+      this.retryCount++;
+      console.log(`Retrying playback (attempt ${this.retryCount}/${this.maxRetries})...`);
+      
+      setTimeout(() => {
+        if (this.currentUid && this.currentButton) {
+          this.loadAndPlay(this.currentUid, this.currentButton);
+        }
+      }, this.retryDelay);
+    } else {
+      console.error('Max retry attempts reached');
+      this.retryCount = 0; // Reset for next time
+    }
+  }
+
+  /**
+   * Handle stalled audio (buffering issues)
+   */
+  handleStalled() {
+    console.log('[AudioPlayer] Playback stalled, attempting to recover...');
+    this.buffering = true;
+    
+    if (this.bufferRetryTimeout) {
+      clearTimeout(this.bufferRetryTimeout);
+    }
+    
+    this.bufferRetryTimeout = setTimeout(() => {
+      if (this.buffering) {
+        console.log('[AudioPlayer] Buffer recovery timeout, attempting to reload...');
+        if (this.currentUid && this.currentButton) {
+          // Only retry if we're still supposed to be playing
+          if (this.isPlaying) {
+            this.retryCount++;
+            if (this.retryCount <= this.maxRetries) {
+              console.log(`[AudioPlayer] Retry ${this.retryCount}/${this.maxRetries} for UID: ${this.currentUid}`);
+              this.loadAndPlay(this.currentUid, this.currentButton);
+            } else {
+              console.error('[AudioPlayer] Max retry attempts reached');
+              this.retryCount = 0;
+              this.updateButtonState(this.currentButton, 'error');
+            }
+          }
+        }
+      }
+    }, 5000); // 5 second buffer recovery timeout
+  }
+
+  /**
+   * Handle waiting event (buffering)
+   */
+  handleWaiting() {
+    console.log('Audio waiting for data...');
+    this.buffering = true;
+    if (this.currentButton) {
+      this.updateButtonState(this.currentButton, 'loading');
+    }
+  }
+
+  /**
+   * Handle playing event (playback started/resumed)
+   */
+  handlePlaying() {
+    console.log('Audio playback started/resumed');
+    this.buffering = false;
+    this.retryCount = 0; // Reset retry counter on successful playback
+    if (this.bufferRetryTimeout) {
+      clearTimeout(this.bufferRetryTimeout);
+      this.bufferRetryTimeout = null;
+    }
+    if (this.currentButton) {
+      this.updateButtonState(this.currentButton, 'playing');
+    }
+  }
+
+  /**
+   * Handle ended event (playback completed)
+   */
+  handleEnded() {
+    console.log('Audio playback ended');
+    this.isPlaying = false;
+    this.buffering = false;
+    if (this.currentButton) {
+      this.updateButtonState(this.currentButton, 'paused');
+    }
+  }
+
+  /**
    * Clean up resources
    */
   cleanup() {
+    // Clear any pending timeouts
+    if (this.loadTimeout) {
+      clearTimeout(this.loadTimeout);
+      this.loadTimeout = null;
+    }
+    
+    if (this.bufferRetryTimeout) {
+      clearTimeout(this.bufferRetryTimeout);
+      this.bufferRetryTimeout = null;
+    }
+    
     // Update button state if we have a reference to the current button
     if (this.currentButton) {
       this.updateButtonState(this.currentButton, 'paused');
@@ -324,6 +509,13 @@ export class AudioPlayer {
     // Pause the audio and store the current time
     if (this.audioElement) {
       try {
+        // Remove event listeners to prevent memory leaks
+        this.audioElement.removeEventListener('error', this.handlePlayError);
+        this.audioElement.removeEventListener('stalled', this.handleStalled);
+        this.audioElement.removeEventListener('waiting', this.handleWaiting);
+        this.audioElement.removeEventListener('playing', this.handlePlaying);
+        this.audioElement.removeEventListener('ended', this.handleEnded);
+        
         try {
           this.audioElement.pause();
           this.lastPlayTime = this.audioElement.currentTime;
@@ -357,6 +549,8 @@ export class AudioPlayer {
     this.currentButton = null;
     this.audioUrl = '';
     this.isPlaying = false;
+    this.buffering = false;
+    this.retryCount = 0;
     
     // Notify global audio manager that personal player has stopped
     globalAudioManager.stopPlayback('personal');

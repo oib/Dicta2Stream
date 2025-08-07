@@ -15,5 +15,6 @@ def log_violation(event: str, ip: str, uid: str, reason: str):
         f.write(log_entry)
     # If DEBUG mode, also print to stdout
     if os.getenv("DEBUG", "0") in ("1", "true", "True"):  # Set DEBUG=1 in .env to enable
-        print(f"[DEBUG] {log_entry.strip()}")
+        # Debug messages disabled
+        pass
 

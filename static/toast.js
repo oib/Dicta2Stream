@@ -14,6 +14,6 @@ export function showToast(message) {
   setTimeout(() => {
     toast.remove();
     // Do not remove the container; let it persist for stacking
-  }, 3500);
+  }, 15000);
 }
 
