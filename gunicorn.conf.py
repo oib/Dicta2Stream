@@ -1,4 +1,4 @@
-bind = "0.0.0.0:8000"
+bind = "0.0.0.0:8100"
 workers = 2  # Tune based on available CPU cores
 worker_class = "uvicorn.workers.UvicornWorker"
 timeout = 300  # Increased from 60 to 300 seconds (5 minutes)
