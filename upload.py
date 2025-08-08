@@ -97,7 +97,7 @@ def upload(request: Request, uid: str = Form(...), file: UploadFile = Form(...))
                         ip=request.client.host,
                         filename=file.filename,  # original filename from user
                         processed_filename=None, # not yet processed
-                        size_bytes=None          # not yet known
+                        size_bytes=0            # placeholder to satisfy NOT NULL; updated after processing
                     )
                     db.add(early_log)
                     log_violation("UPLOAD_DEBUG", request.client.host, uid, f"[FORCE FLUSH] Before db.flush() after early_log add")
