@@ -1,6 +1,17 @@
 // This function is responsible for rendering the list of files to the DOM.
 // It is globally accessible via window.displayUserFiles.
 
+// Helper function to wait for showToast to be available
+function waitForShowToast() {
+    return new Promise((resolve) => {
+        if (window.showToast) {
+            resolve(window.showToast);
+        } else {
+            setTimeout(() => waitForShowToast().then(resolve), 100);
+        }
+    });
+}
+
 window.displayUserFiles = function(uid, files) {
     const fileList = document.getElementById('file-list');
     if (!fileList) {
@@ -154,7 +165,9 @@ async function deleteFile(uid, fileName, listItem, displayName = '') {
     }
     
     // Show success message
-    window.showToast(`Successfully deleted "${fileToDelete}"`, 'success');
+    // Wait for showToast to be available
+    const showToast = await waitForShowToast();
+    showToast(`Successfully deleted "${fileToDelete}"`, 'success');
     
     // If the file list is now empty, show a message
     const fileList = document.getElementById('file-list');
@@ -175,7 +188,9 @@ async function deleteFile(uid, fileName, listItem, displayName = '') {
     }
   } catch (error) {
     // Debug messages disabled
-    window.showToast(`Error deleting "${fileToDelete}": ${error.message}`, 'error');
+    // Wait for showToast to be available
+    const showToast = await waitForShowToast();
+    showToast(`Error deleting "${fileToDelete}": ${error.message}`, 'error');
     
     // Reset the button state if there was an error
     if (listItem) {
@@ -194,7 +209,7 @@ async function deleteFile(uid, fileName, listItem, displayName = '') {
 document.addEventListener('DOMContentLoaded', () => {
   const fileList = document.getElementById('file-list');
   if (fileList) {
-    fileList.addEventListener('click', (e) => {
+    fileList.addEventListener('click', async (e) => {
       const deleteButton = e.target.closest('.delete-file');
       if (deleteButton) {
         e.preventDefault();
@@ -205,7 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const uid = localStorage.getItem('uid');
         if (!uid) {
-          window.showToast('You need to be logged in to delete files', 'error');
+          // Wait for showToast to be available
+          const showToast = await waitForShowToast();
+          showToast('You need to be logged in to delete files', 'error');
           // Debug messages disabled
           return;
         }

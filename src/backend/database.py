@@ -7,7 +7,14 @@ import os
 # Debug messages disabled
 
 POSTGRES_URL = os.getenv("DATABASE_URL", "postgresql://d2s:kuTy4ZKs2VcjgDh6@localhost:5432/dictastream")
-engine = create_engine(POSTGRES_URL, echo=False)  # Disable echo for production
+engine = create_engine(
+    POSTGRES_URL,
+    echo=False,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    pool_size=5,
+    max_overflow=10,
+)
 
 # SQLAlchemy Base class for models
 Base = SQLModel

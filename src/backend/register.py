@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Form, Request, HTTPException, Depends
 from sqlmodel import Session, select
-from models import User, UserQuota
-from database import get_db
+from .models import User, UserQuota
+from .database import get_db
 import uuid
 import smtplib
 from email.message import EmailMessage
@@ -38,20 +38,20 @@ def initialize_user_directory(uid: str):
                 shutil.copy2(default_stream_path, user_stream_path)
                 # Debug messages disabled
             else:
-                print(f"[ERROR] Default stream.opus not found at {default_stream_path}")
+                log_violation("FILE_NOT_FOUND", "unknown", uid, f"Default stream.opus not found at {default_stream_path}")
                 # Fallback: create an empty file to prevent errors
                 with open(user_stream_path, 'wb') as f:
                     f.write(b'')
                 
         return True
     except Exception as e:
-        print(f"Error initializing user directory for {uid}: {str(e)}")
+        log_violation("USER_INIT_ERROR", "unknown", uid, f"Error initializing user directory: {str(e)}")
         return False
 
 @router.post("/register")
 def register(request: Request, email: str = Form(...), user: str = Form(...)):
     from sqlalchemy.exc import IntegrityError
-    from datetime import datetime
+    from datetime import datetime, timezone
     
     # Use the database session context manager
     with get_db() as db:
@@ -60,7 +60,7 @@ def register(request: Request, email: str = Form(...), user: str = Form(...)):
             existing_user_by_email = db.get(User, email)
             
             # Check if user exists by username
-            existing_user_by_username = db.query(User).filter(User.username == user).first()
+            existing_user_by_username = db.exec(select(User).where(User.username == user)).first()
             
             token = str(uuid.uuid4())
             action = None
@@ -69,7 +69,7 @@ def register(request: Request, email: str = Form(...), user: str = Form(...)):
             if existing_user_by_email and existing_user_by_username and existing_user_by_email.email == existing_user_by_username.email:
                 # Update token for existing user (login)
                 existing_user_by_email.token = token
-                existing_user_by_email.token_created = datetime.utcnow()
+                existing_user_by_email.token_created = datetime.now(timezone.utc)
                 existing_user_by_email.confirmed = False
                 existing_user_by_email.ip = request.client.host
                 db.add(existing_user_by_email)
@@ -97,7 +97,7 @@ def register(request: Request, email: str = Form(...), user: str = Form(...)):
                 
                 # Initialize user directory after successful registration
                 if not initialize_user_directory(email):
-                    print(f"[WARNING] Failed to initialize user directory for {email}")
+                    log_violation("USER_INIT_WARNING", "unknown", email, f"Failed to initialize user directory")
             
             # If we get here, we've either logged in or registered successfully
             if action not in ["login", "register"]:

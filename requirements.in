@@ -5,6 +5,7 @@ psycopg2-binary==2.9.10
 python-dotenv==1.1.0
 python-multipart==0.0.20
 PyYAML==6.0.2
+requests
 setuptools==66.1.1
 slowapi==0.1.9
 sqlmodel==0.0.24

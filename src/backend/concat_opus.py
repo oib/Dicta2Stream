@@ -3,6 +3,7 @@ import os
 import random
 import subprocess
 from pathlib import Path
+from .log import log_violation
 
 def concat_opus_files(user_dir: Path, output_file: Path):
     """
@@ -15,7 +16,7 @@ def concat_opus_files(user_dir: Path, output_file: Path):
         try:
             filelist_path.unlink()
         except Exception as e:
-            print(f"Warning: Could not clean up old filelist.txt: {e}")
+            log_violation("CONCAT_WARNING", "unknown", "system", f"Could not clean up old filelist.txt: {e}")
     
     # Get all opus files except stream.opus and remove any duplicates
     import hashlib
@@ -38,7 +39,7 @@ def concat_opus_files(user_dir: Path, output_file: Path):
             
             # Skip if we've seen this exact file before
             if file_hash in file_hashes:
-                print(f"Removing duplicate file: {f.name}")
+                log_violation("CONCAT_DUPLICATE", "unknown", "system", f"Removing duplicate file: {f.name}")
                 f.unlink()
                 continue
                 
@@ -46,11 +47,20 @@ def concat_opus_files(user_dir: Path, output_file: Path):
             files.append(f)
             
         except Exception as e:
-            print(f"Error processing {f}: {e}")
+            log_violation("CONCAT_ERROR", "unknown", "system", f"Error processing {f}: {e}")
     
     if not files:
-        # If no files, create an empty stream.opus
-        output_file.write_bytes(b'')
+        # If no files, copy silent.opus as stream.opus
+        from pathlib import Path
+        silent_opus = Path(__file__).parent.parent.parent / "silent.opus"
+        if silent_opus.exists():
+            import shutil
+            shutil.copy2(silent_opus, output_file)
+            log_violation("CONCAT_INFO", "unknown", "system", f"No audio files found, using silent.opus for {output_file}")
+        else:
+            # Fallback: create an empty file if silent.opus doesn't exist
+            output_file.write_bytes(b'')
+            log_violation("CONCAT_WARNING", "unknown", "system", f"No audio files and silent.opus not found, created empty {output_file}")
         return output_file
         
     random.shuffle(files)

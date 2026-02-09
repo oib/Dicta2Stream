@@ -1,19 +1,17 @@
 [Unit]
-Description=Dicta2Stream FastAPI application (Gunicorn)
+Description=Dicta2Stream Audio Streaming Service
 After=network.target
 
 [Service]
-User=oib
-Group=www-data
-WorkingDirectory=/home/oib/games/dicta2stream
-Environment="PATH=/home/oib/games/dicta2stream/venv/bin"
-Environment="PYTHONPATH=/home/oib/games/dicta2stream"
-ExecStart=/home/oib/games/dicta2stream/venv/bin/gunicorn -c gunicorn_config.py main:app
+Type=exec
+User=games
+Group=games
+WorkingDirectory=/var/www/dicta2stream
+Environment="PATH=/var/www/dicta2stream/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/var/www/dicta2stream/venv/bin/gunicorn -c gunicorn.conf.py src.backend.main:app
+ExecReload=/bin/kill -s HUP $MAINPID
 Restart=always
-RestartSec=5
-
-# Security
-NoNewPrivileges=true
+RestartSec=10
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=read-only

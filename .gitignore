@@ -1,26 +1,40 @@
 # Bytecode files
 __pycache__/
 *.py[cod]
+*$py.class
 
 # Virtual environments
 .venv/
 venv/
+env/
+ENV/
 
 # System files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
 # Logs and temporary files
 *.log
 *.bak
 *.swp
 *.tmp
+*.swo
+*~
 
 # Node.js dependencies
 node_modules/
 package.json
 package-lock.json
 yarn.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Development documentation
 PERFORMANCE-TESTING.md
@@ -37,19 +51,21 @@ coverage/
 *.test.js
 *.spec.js
 .nyc_output/
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
 
 # Environment variables
 .env
 .env.*
 !.env.example
 
-# Debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
 # Local Database
 dicta2stream.db
+*.db
+*.sqlite
+*.sqlite3
 
 # Development directory
 dev/
@@ -62,27 +78,32 @@ alembic.ini
 *.yaml
 *.yml
 *.toml
+gunicorn.conf.py
 
 # IDEs and editors
 .vscode/
 .idea/
 *.sublime-workspace
 *.sublime-project
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
 
 # Local development
 .cache/
 .temp/
 .tmp/
 
-# Project specific
+# Project specific - User data
 data/*
-!data/.gitignore
+!data/.gitkeep
+!data/silent.opus
 
 log/*
-!log/.gitignore
+!log/.gitkeep
 
 streams/*
-!streams/.gitignore
+!streams/.gitkeep
 
 # Test files
 tests/**/*.js
@@ -97,3 +118,36 @@ performance-results/*
 
 # Legacy files
 public_streams.txt
+
+# Python specific
+*.egg-info/
+.eggs/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Audio files (except silent.opus)
+*.opus
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.ogg
+!silent.opus
+
+# Service files
+*.service
+*.socket
+
+# Backup files
+*.backup
+*.old
+
+# Local development scripts
+run_local.sh
+dev.sh

@@ -3,9 +3,9 @@
 from fastapi import APIRouter, Form, HTTPException, Depends, Request, Response
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlmodel import Session, select
-from database import get_db
-from models import User, DBSession
-from datetime import datetime, timedelta
+from .database import get_db
+from .models import User, DBSession
+from datetime import datetime, timedelta, timezone
 import secrets
 import json
 
@@ -19,14 +19,20 @@ async def magic_login(request: Request, response: Response, token: str = Form(..
     with get_db() as db:
         try:
             # Look up user by token
-            user = db.query(User).filter(User.token == token).first()
+            user = db.exec(select(User).where(User.token == token)).first()
             # Debug messages disabled
 
             if not user:
                 # Debug messages disabled
                 raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-            if datetime.utcnow() - user.token_created > timedelta(minutes=30):
+            # Handle both naive and aware datetimes
+            token_time = user.token_created
+            if token_time.tzinfo is None:
+                # Assume naive datetime is UTC (legacy data)
+                token_time = token_time.replace(tzinfo=timezone.utc)
+            
+            if datetime.now(timezone.utc) - token_time > timedelta(minutes=30):
                 # Debug messages disabled
                 raise HTTPException(status_code=401, detail="Token expired")
 
@@ -39,7 +45,7 @@ async def magic_login(request: Request, response: Response, token: str = Form(..
 
             # Create a new session for the user (valid for 24 hours)
             session_token = secrets.token_urlsafe(32)
-            expires_at = datetime.utcnow() + timedelta(hours=24)
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
             
             # Create new session
             session = DBSession(

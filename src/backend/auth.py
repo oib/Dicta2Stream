@@ -4,8 +4,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 from typing import Optional
 
-from models import User, Session as DBSession, verify_session
-from database import get_db
+from .models import User, Session as DBSession, verify_session
+from .database import get_db
 
 security = HTTPBearer()
 
@@ -27,8 +27,8 @@ def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        # Get the user from the session using query interface
-        user = db.query(User).filter(User.email == db_session.uid).first()
+        # Get the user from the session
+        user = db.exec(select(User).where(User.email == db_session.uid)).first()
         
         if not user:
             raise HTTPException(
@@ -60,14 +60,14 @@ def get_optional_user(
 def create_session(user: User, request: Request) -> DBSession:
     """Create a new session for the user (valid for 24 hours)"""
     import secrets
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     
     user_agent = request.headers.get("user-agent", "")
     ip_address = request.client.host if request.client else "0.0.0.0"
     
     # Create session token and set 24-hour expiry
     session_token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(hours=24)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
     
     # Create the session object
     session = DBSession(

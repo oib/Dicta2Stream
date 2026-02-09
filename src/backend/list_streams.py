@@ -4,12 +4,15 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from models import PublicStream
-from database import get_db
+from .models import PublicStream
+from .database import get_db
 from pathlib import Path
 import asyncio
 import os
 import json
+
+# Import log_violation for error logging
+from .log import log_violation
 
 router = APIRouter()
 DATA_ROOT = Path("./data")
@@ -67,16 +70,18 @@ async def list_streams_sse(db):
         
         # Query all public streams from the database with required fields
         # Also get all valid users to filter out orphaned streams
-        from models import User
+        from .models import User
         
-        # Use the query interface instead of execute
-        all_streams = db.query(PublicStream).order_by(PublicStream.mtime.desc()).all()
+        all_streams = db.exec(select(PublicStream).order_by(PublicStream.mtime.desc())).all()
         
         # Get all valid user UIDs (email and username)
-        all_users = db.query(User).all()
+        all_users = db.exec(select(User)).all()
         
         valid_uids = set()
         for user in all_users:
+            # Handle tuple unpacking if needed
+            if user is not None and not isinstance(user, User) and hasattr(user, "__getitem__"):
+                user = user[0]
             valid_uids.add(user.email)
             valid_uids.add(user.username)
         
@@ -84,17 +89,20 @@ async def list_streams_sse(db):
         streams = []
         orphaned_count = 0
         for stream in all_streams:
+            # Handle tuple unpacking if needed
+            if stream is not None and not isinstance(stream, PublicStream) and hasattr(stream, "__getitem__"):
+                stream = stream[0]
             if stream.uid in valid_uids:
                 streams.append(stream)
             else:
                 orphaned_count += 1
-                print(f"[STREAMS] Filtering out orphaned stream: {stream.uid} (username: {stream.username})")
+                log_violation("ORPHANED_STREAM", "unknown", stream.uid, f"Filtering out orphaned stream: {stream.uid} (username: {stream.username})")
         
         if orphaned_count > 0:
-            print(f"[STREAMS] Filtered out {orphaned_count} orphaned streams from public display")
+            log_violation("ORPHANED_CLEANUP", "unknown", "system", f"Filtered out {orphaned_count} orphaned streams from public display")
         
         if not streams:
-            print("No public streams found in the database")
+            log_violation("NO_PUBLIC_STREAMS", "unknown", "system", "No public streams found in the database")
             yield f"data: {json.dumps({'end': True})}\n\n"
             return
             
@@ -117,7 +125,7 @@ async def list_streams_sse(db):
                 # Small delay to prevent overwhelming the client
                 await asyncio.sleep(0.1)
             except Exception as e:
-                print(f"Error processing stream {stream.uid}: {str(e)}")
+                log_violation("STREAM_PROCESSING_ERROR", "unknown", stream.uid, f"Error processing stream: {str(e)}")
                 # Debug messages disabled
                 continue
         
@@ -126,7 +134,7 @@ async def list_streams_sse(db):
         yield f"data: {json.dumps({'end': True})}\n\n"
         
     except Exception as e:
-        print(f"Error in list_streams_sse: {str(e)}")
+        log_violation("LIST_STREAMS_ERROR", "unknown", "system", f"Error in list_streams_sse: {str(e)}")
         # Debug messages disabled
         yield f"data: {json.dumps({'error': True, 'message': str(e)})}\n\n"
 
@@ -136,14 +144,13 @@ def list_streams():
     # Use the database session context manager
     with get_db() as db:
         try:
-            # Use the query interface instead of execute
-            streams = db.query(PublicStream).order_by(PublicStream.mtime.desc()).all()
+            streams = db.exec(select(PublicStream).order_by(PublicStream.mtime.desc())).all()
             
             return {
                 "streams": [
                     {
                         'uid': stream.uid,
-                        'size': stream.size,
+                        'size': stream.storage_bytes,
                         'mtime': stream.mtime,
                         'created_at': stream.created_at.isoformat() if stream.created_at else None,
                         'updated_at': stream.updated_at.isoformat() if stream.updated_at else None

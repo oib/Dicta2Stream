@@ -4,9 +4,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 from datetime import datetime
 
-from models import Session as DBSession, User
-from database import get_db
-from auth import get_current_user
+from .models import Session as DBSession, User
+from .database import get_db
+from .auth import get_current_user
 
 router = APIRouter(prefix="/api", tags=["auth"])
 security = HTTPBearer()
@@ -28,11 +28,11 @@ async def logout(
         # Use the database session context manager
         with get_db() as db:
             try:
-                # Find and invalidate the session using query interface
-                session = db.query(DBSession).filter(
+                # Find and invalidate the session
+                session = db.exec(select(DBSession).where(
                     DBSession.token == token,
                     DBSession.is_active == True  # noqa: E712
-                ).first()
+                )).first()
                 
                 if session:
                     try:

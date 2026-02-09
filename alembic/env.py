@@ -9,8 +9,8 @@ from alembic import context
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Import your SQLAlchemy models and engine
-from models import SQLModel
-from database import engine
+from src.backend.models import SQLModel
+from src.backend.database import engine
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -22,7 +22,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Import all your SQLModel models here so that Alembic can detect them
-from models import User, DBSession
+from src.backend.models import User, DBSession
 
 # Set the target metadata to SQLModel.metadata
 target_metadata = SQLModel.metadata

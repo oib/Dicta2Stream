@@ -17,3 +17,6 @@ export function showToast(message) {
   }, 15000);
 }
 
+// Also expose it globally for non-module scripts
+window.showToast = showToast;
+

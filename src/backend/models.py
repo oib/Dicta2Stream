@@ -2,11 +2,11 @@
 
 from sqlmodel import SQLModel, Field, Session, select
 from typing import Optional
-from datetime import datetime
-from database import engine
+from datetime import datetime, timezone
+from .database import engine
 
 class User(SQLModel, table=True):
-    token_created: datetime = Field(default_factory=datetime.utcnow)
+    token_created: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     email: str = Field(primary_key=True)
     username: str = Field(unique=True, index=True)
     token: str
@@ -26,7 +26,7 @@ class UploadLog(SQLModel, table=True):
     filename: Optional[str]  # Original filename
     processed_filename: Optional[str]  # Processed filename (UUID.opus)
     size_bytes: int
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class DBSession(SQLModel, table=True):
@@ -34,10 +34,10 @@ class DBSession(SQLModel, table=True):
     uid: str = Field(foreign_key="user.email")  # This references User.email (primary key)
     ip_address: str
     user_agent: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime
     is_active: bool = True
-    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    last_activity: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PublicStream(SQLModel, table=True):
@@ -45,10 +45,10 @@ class PublicStream(SQLModel, table=True):
     uid: str = Field(primary_key=True)
     username: Optional[str] = Field(default=None, index=True)
     storage_bytes: int = 0
-    mtime: int = Field(default_factory=lambda: int(datetime.utcnow().timestamp()))
-    last_updated: Optional[datetime] = Field(default_factory=datetime.utcnow)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    mtime: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+    last_updated: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 def get_user_by_uid(uid: str) -> Optional[User]:
@@ -80,14 +80,14 @@ def get_user_by_uid(uid: str) -> Optional[User]:
 
 def verify_session(db: Session, token: str) -> DBSession:
     """Verify a session token and return the session if valid"""
-    from datetime import datetime
     
     # Find the session
-    session = db.query(DBSession).filter(
+    statement = select(DBSession).where(
         DBSession.token == token,
         DBSession.is_active == True,  # noqa: E712
-        DBSession.expires_at > datetime.utcnow()
-    ).first()
+        DBSession.expires_at > datetime.now(timezone.utc)
+    )
+    session = db.exec(statement).first()
     
     if not session:
         raise HTTPException(
@@ -97,7 +97,7 @@ def verify_session(db: Session, token: str) -> DBSession:
         )
     
     # Update last activity
-    session.last_activity = datetime.utcnow()
+    session.last_activity = datetime.now(timezone.utc)
     db.add(session)
     db.commit()
     db.refresh(session)
