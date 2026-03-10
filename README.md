@@ -19,7 +19,7 @@ A FastAPI-based audio streaming and upload backend with user registration, quota
 - **Backend**: FastAPI with Python 3.11+
 - **Database**: PostgreSQL with SQLModel ORM
 - **Audio**: FFmpeg for Opus conversion
-- **Deployment**: Gunicorn with systemd service
+- **Deployment**: Uvicorn with systemd service
 - **Rate Limiting**: SlowAPI for abuse prevention
 
 ## Quick Start
@@ -81,7 +81,7 @@ python run.py
 uvicorn src.backend.main:app --reload
 
 # Production mode
-gunicorn -c gunicorn.conf.py src.backend.main:app
+uvicorn src.backend.main:app --host 0.0.0.0 --port 8100 --workers 4
 ```
 
 ## API Endpoints
@@ -168,7 +168,7 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Run application
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "main:app"]
+CMD ["uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8100", "--workers", "4"]
 ```
 
 ## Monitoring
@@ -176,7 +176,7 @@ CMD ["gunicorn", "-c", "gunicorn.conf.py", "main:app"]
 ### Logs
 
 - Application logs: `/var/log/dicta2stream/`
-- Access logs: Configured in Gunicorn
+- Access logs: Configured in Uvicorn
 - Abuse violations: Logged to database and file
 
 ### Health Checks

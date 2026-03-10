@@ -78,7 +78,7 @@ alembic.ini
 *.yaml
 *.yml
 *.toml
-gunicorn.conf.py
+uvicorn_conf.py
 
 # IDEs and editors
 .vscode/
@@ -151,3 +151,33 @@ pip-delete-this-directory.txt
 # Local development scripts
 run_local.sh
 dev.sh
+
+# Additional GitHub-specific ignores
+*.orig
+*.rej
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Security and secrets
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+.private/
+
+# Temporary and cache files
+.cache/
+.temp/
+.tmp/
+*.pid
+*.lock
+
+# Local configuration overrides
+config.local.*
+settings.local.*
+*.local.py

@@ -8,7 +8,7 @@ User=games
 Group=games
 WorkingDirectory=/var/www/dicta2stream
 Environment="PATH=/var/www/dicta2stream/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=/var/www/dicta2stream/venv/bin/gunicorn -c gunicorn.conf.py src.backend.main:app
+ExecStart=/var/www/dicta2stream/venv/bin/uvicorn src.backend.main:app --host 0.0.0.0 --port 8100 --workers 4
 ExecReload=/bin/kill -s HUP $MAINPID
 Restart=always
 RestartSec=10
